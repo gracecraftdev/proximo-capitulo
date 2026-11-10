@@ -1,0 +1,190 @@
+# ============================================
+# PROXIMO CAPITULO
+# Python + FastAPI + React + TypeScript + Vite
+# ============================================
+
+# ============================================
+# PYTHON / FASTAPI
+# ============================================
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+test-results/
+
+# Ferramentas Python
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.hypothesis/
+
+# Pacotes e builds
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ============================================
+# BANCO DE DADOS
+# ============================================
+
+# SQLite
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Backups de banco
+*.sql.gz
+*.dump
+*.bak
+
+# ============================================
+# NODE.JS / REACT / TYPESCRIPT / VITE
+# ============================================
+
+# Dependencias
+node_modules/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+
+# Builds
+dist/
+build/
+.vite/
+.next/
+out/
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# ============================================
+# VARIAVEIS DE AMBIENTE E SEGREDOS
+# ============================================
+
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Credenciais e chaves
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials.json
+secrets.json
+service-account.json
+
+# ============================================
+# DOCKER
+# ============================================
+
+# Arquivos locais de override
+docker-compose.override.yml
+compose.override.yml
+
+# Dados persistentes locais
+docker-data/
+postgres-data/
+
+# ============================================
+# EDITORES E IDEs
+# ============================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+
+# Visual Studio
+.vs/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ============================================
+# SISTEMAS OPERACIONAIS
+# ============================================
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+.directory
+.Trash-*/
+
+# ============================================
+# ARQUIVOS TEMPORARIOS
+# ============================================
+
+tmp/
+temp/
+*.tmp
+*.temp
+*.orig
+*.rej
+
+# ============================================
+# UPLOADS E ARQUIVOS LOCAIS
+# ============================================
+
+# Arquivos enviados pelos usuarios
+uploads/
+storage/uploads/
+
+# Dados gerados localmente
+local-data/
+runtime/
+
+# ============================================
+# FIM DO GITIGNORE
+# ============================================
