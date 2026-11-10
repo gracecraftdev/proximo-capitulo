@@ -39,7 +39,9 @@ async function request<T>(
     const body = await res.json().catch(() => ({}));
 
     throw new Error(
-      body.detail || 'Não foi possível concluir a operação.'
+      typeof body.detail === 'string'
+        ? body.detail
+        : 'Não foi possível concluir a operação.'
     );
   }
 
@@ -66,6 +68,10 @@ function App() {
   // Estados da edição
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+
+  // Estados da busca e ordenação
+  const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // ==========================================
   // CARREGAR DADOS
@@ -199,7 +205,7 @@ function App() {
   };
 
   // ==========================================
-  // FILTRAR LIVROS
+  // FILTRAR E ORDENAR LIVROS
   // ==========================================
 
   const pending = books.filter(
@@ -210,7 +216,17 @@ function App() {
     book => book.status === 'ja_li'
   );
 
-  const visibleBooks = tab === 'quero_ler' ? pending : done;
+  const visibleBooks = (tab === 'quero_ler' ? pending : done)
+    .filter(book =>
+      book.title
+        .toLocaleLowerCase('pt-BR')
+        .includes(search.trim().toLocaleLowerCase('pt-BR'))
+    )
+    .sort((a, b) =>
+      sortOrder === 'asc'
+        ? a.title.localeCompare(b.title, 'pt-BR')
+        : b.title.localeCompare(a.title, 'pt-BR')
+    );
 
   // ==========================================
   // INTERFACE
@@ -325,6 +341,31 @@ function App() {
         <section className="panel">
           <h2>Minha biblioteca</h2>
 
+          {/* BUSCA E ORDENAÇÃO */}
+
+          <div className="library-filters">
+            <input
+              type="search"
+              aria-label="Pesquisar livros"
+              placeholder="🔎 Pesquisar livros..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+
+            <select
+              aria-label="Ordenar livros"
+              value={sortOrder}
+              onChange={e =>
+                setSortOrder(e.target.value as 'asc' | 'desc')
+              }
+            >
+              <option value="asc">Título: A → Z</option>
+              <option value="desc">Título: Z → A</option>
+            </select>
+          </div>
+
+          {/* CADASTRO */}
+
           <form onSubmit={e => void add(e)}>
             <input
               aria-label="Título do livro"
@@ -339,6 +380,8 @@ function App() {
               + Adicionar
             </button>
           </form>
+
+          {/* ABAS */}
 
           <nav>
             <button
@@ -355,6 +398,8 @@ function App() {
               ✅ Já li ({done.length})
             </button>
           </nav>
+
+          {/* LISTA DE LIVROS */}
 
           <ul>
             {visibleBooks.map(book => (
@@ -424,9 +469,22 @@ function App() {
             ))}
           </ul>
 
+          {/* MENSAGEM DE LISTA VAZIA */}
+
           {!visibleBooks.length && (
             <p className="empty">
-              Nenhum livro nesta lista ainda.
+              {search.trim()
+                ? 'Nenhum livro encontrado para sua pesquisa.'
+                : 'Nenhum livro nesta lista ainda.'}
+            </p>
+          )}
+
+          {search.trim() && (
+            <p className="empty" role="status">
+              {visibleBooks.length}{' '}
+              {visibleBooks.length === 1
+                ? 'livro encontrado'
+                : 'livros encontrados'}
             </p>
           )}
         </section>
