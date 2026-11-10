@@ -352,16 +352,28 @@ function App() {
               onChange={e => setSearch(e.target.value)}
             />
 
-            <select
-              aria-label="Ordenar livros"
-              value={sortOrder}
-              onChange={e =>
-                setSortOrder(e.target.value as 'asc' | 'desc')
+            <button
+              type="button"
+              className="sort-toggle"
+              aria-label={
+                sortOrder === 'asc'
+                  ? 'Ordem A a Z. Clique para inverter.'
+                  : 'Ordem Z a A. Clique para inverter.'
+              }
+              title="Alternar ordem alfabética"
+              onClick={() =>
+                setSortOrder(current =>
+                  current === 'asc' ? 'desc' : 'asc'
+                )
               }
             >
-              <option value="asc">Título: A → Z</option>
-              <option value="desc">Título: Z → A</option>
-            </select>
+              <span className="sort-icon" aria-hidden="true">
+                {sortOrder === 'asc' ? '↓' : '↑'}
+              </span>
+              <span className="sort-label">
+                {sortOrder === 'asc' ? 'A–Z' : 'Z–A'}
+              </span>
+            </button>
           </div>
 
           {/* CADASTRO */}
