@@ -4,13 +4,14 @@
    Navegação e páginas
    ========================================== */
 
+/* Menu principal */
+
 .main-navigation {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
-
   margin: 0 0 24px;
   padding: 12px;
 
@@ -60,7 +61,10 @@
   outline-offset: 3px;
 }
 
-/* Abas da biblioteca */
+/* ==========================================
+   ABAS DA BIBLIOTECA
+   Quero ler, Lendo e Já li
+   ========================================== */
 
 .library-tabs {
   display: flex;
@@ -69,16 +73,24 @@
   margin: 22px 0 10px;
 }
 
+.library-tabs button {
+  flex: 1 1 auto;
+}
+
 .library-tabs button.active {
   background: #b97428;
   color: #1a100b;
   font-weight: 700;
 }
 
-/* Páginas em preparação */
+/* ==========================================
+   PÁGINAS EM PREPARAÇÃO
+   Importação e login
+   ========================================== */
 
 .page-placeholder {
   min-height: 350px;
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -99,6 +111,7 @@
 
 .page-link {
   display: inline-flex;
+  align-items: center;
   justify-content: center;
 
   margin-top: 15px;
@@ -108,17 +121,53 @@
   border-radius: 11px;
 
   background: linear-gradient(135deg, #e9b765, #b97428);
-  color: #261307;
 
+  color: #261307;
   font: 700 0.95rem system-ui, sans-serif;
   text-decoration: none;
+
+  transition:
+    filter 0.2s,
+    transform 0.2s;
 }
 
 .page-link:hover {
   filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 
-/* Responsividade */
+/* ==========================================
+   HISTÓRICO DE SORTEIOS
+   ========================================== */
+
+.history-decision {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 6px 12px;
+
+  border: 1px solid rgba(233, 183, 101, 0.35);
+  border-radius: 999px;
+
+  background: rgba(42, 25, 15, 0.45);
+
+  color: #f7e8c9;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+/* ==========================================
+   LISTAS DE LIVROS
+   ========================================== */
+
+.panel li > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================
+   RESPONSIVIDADE
+   ========================================== */
 
 @media (max-width: 650px) {
   .main-navigation {
@@ -137,10 +186,19 @@
     min-height: 300px;
     padding: 30px 16px;
   }
+
+  .history-decision {
+    margin-top: 8px;
+  }
 }
 
+/* ==========================================
+   ACESSIBILIDADE
+   ========================================== */
+
 @media (prefers-reduced-motion: reduce) {
-  .main-navigation a {
+  .main-navigation a,
+  .page-link {
     transition: none;
   }
 }

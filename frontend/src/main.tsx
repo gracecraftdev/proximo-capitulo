@@ -12,26 +12,27 @@ import {
 import './style.css';
 import './navigation.css';
 
-// ==========================================
-// TIPOS
-// ==========================================
+type Status = 'quero_ler' | 'lendo' | 'ja_li';
+type Decision = 'vou_ler' | 'agora_nao';
 
 type Book = {
   id: number;
   title: string;
-  status: 'quero_ler' | 'ja_li';
+  status: Status;
   read_at: string | null;
 };
 
-type Draw = {
-  id: number;
-  title: string;
-  drawn_at: string;
+type DrawResult = Book & {
+  draw_id: number;
 };
 
-// ==========================================
-// CONFIGURAÇÃO DA API
-// ==========================================
+type DrawHistory = {
+  id: number;
+  book_id: number;
+  title: string;
+  drawn_at: string;
+  decision: Decision | null;
+};
 
 const API =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -40,11 +41,12 @@ async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(API + path, {
+  const response = await fetch(`${API}${path}`, {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...options?.headers,
     },
-    ...options,
   });
 
   if (!response.ok) {
@@ -64,108 +66,95 @@ async function request<T>(
   return response.json();
 }
 
-// ==========================================
-// MENU DE NAVEGAÇÃO
-// ==========================================
-
 function Navigation() {
   return (
-    <nav
-      className="main-navigation"
-      aria-label="Menu principal"
-    >
-      <NavLink to="/" end>
-        ✨ Início
-      </NavLink>
-
-      <NavLink to="/biblioteca">
-        📚 Minha biblioteca
-      </NavLink>
-
-      <NavLink to="/importar">
-        📥 Importar livros
-      </NavLink>
-
-      <NavLink to="/login">
-        👤 Entrar
-      </NavLink>
+    <nav className="main-navigation" aria-label="Menu principal">
+      <NavLink to="/" end>✨ Início</NavLink>
+      <NavLink to="/biblioteca">📚 Minha biblioteca</NavLink>
+      <NavLink to="/importar">📥 Importar livros</NavLink>
+      <NavLink to="/historico">📜 Histórico</NavLink>
+      <NavLink to="/login">👤 Entrar</NavLink>
     </nav>
   );
 }
 
-// ==========================================
-// COMPONENTE PRINCIPAL
-// ==========================================
+function decisionLabel(decision: Decision | null) {
+  if (decision === 'vou_ler') return '📖 Vou ler';
+  if (decision === 'agora_nao') return '↩️ Agora não';
+  return 'Sem decisão registrada';
+}
+
+function formatDate(date: string) {
+  const parsed = new Date(date);
+
+  return Number.isNaN(parsed.getTime())
+    ? date
+    : parsed.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+}
 
 function App() {
-  // Estados da biblioteca
   const [books, setBooks] = useState<Book[]>([]);
-  const [history, setHistory] = useState<Draw[]>([]);
+  const [history, setHistory] = useState<DrawHistory[]>([]);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
 
-  // Estados do sorteador
-  const [selected, setSelected] = useState<Book | null>(null);
+  const [selected, setSelected] = useState<DrawResult | null>(
+    null
+  );
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState('');
+  const [deciding, setDeciding] = useState(false);
 
-  // Estados da biblioteca
-  const [tab, setTab] = useState<'quero_ler' | 'ja_li'>(
-    'quero_ler'
-  );
-
+  const [tab, setTab] = useState<Status>('quero_ler');
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(
     'asc'
   );
+  const [historySearch, setHistorySearch] = useState('');
 
-  // Estados da edição
   const [editingBook, setEditingBook] = useState<Book | null>(
     null
   );
   const [editingTitle, setEditingTitle] = useState('');
 
-  // ==========================================
-  // CARREGAR DADOS
-  // ==========================================
+  async function refresh() {
+    const [loadedBooks, loadedHistory] = await Promise.all([
+      request<Book[]>('/books'),
+      request<DrawHistory[]>('/history'),
+    ]);
 
-  const refresh = async () => {
-    try {
-      const [loadedBooks, loadedHistory] = await Promise.all([
-        request<Book[]>('/books'),
-        request<Draw[]>('/history'),
-      ]);
-
-      setBooks(loadedBooks);
-      setHistory(loadedHistory);
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-  };
+    setBooks(loadedBooks);
+    setHistory(loadedHistory);
+  }
 
   useEffect(() => {
-    void refresh();
+    void refresh().catch(error => {
+      setMessage((error as Error).message);
+    });
   }, []);
 
-  // ==========================================
-  // EXECUTAR OPERAÇÕES
-  // ==========================================
-
-  const run = async (fn: () => Promise<unknown>) => {
+  async function run(
+    operation: () => Promise<void>,
+    successMessage?: string
+  ) {
     try {
       setMessage('');
-      await fn();
+      await operation();
       await refresh();
+
+      if (successMessage) {
+        setMessage(successMessage);
+      }
     } catch (error) {
       setMessage((error as Error).message);
     }
-  };
+  }
 
-  // ==========================================
-  // ADICIONAR LIVRO
-  // ==========================================
-
-  const add = async (event: React.FormEvent) => {
+  async function add(event: React.FormEvent) {
     event.preventDefault();
 
     await run(async () => {
@@ -175,61 +164,82 @@ function App() {
       });
 
       setTitle('');
-    });
-  };
+    }, 'Livro adicionado à lista Quero ler!');
+  }
 
-  // ==========================================
-  // EDITAR LIVRO
-  // ==========================================
-
-  const startEditing = (book: Book) => {
+  function startEditing(book: Book) {
     setEditingBook(book);
     setEditingTitle(book.title);
     setMessage('');
-  };
+  }
 
-  const cancelEditing = () => {
+  function cancelEditing() {
     setEditingBook(null);
     setEditingTitle('');
-  };
+  }
 
-  const saveEditing = async (event: React.FormEvent) => {
+  async function saveEditing(event: React.FormEvent) {
     event.preventDefault();
 
     if (!editingBook) return;
 
-    try {
-      setMessage('');
-
+    await run(async () => {
       const updated = await request<Book>(
         `/books/${editingBook.id}`,
         {
           method: 'PATCH',
-          body: JSON.stringify({
-            title: editingTitle,
-          }),
+          body: JSON.stringify({ title: editingTitle }),
         }
       );
 
       setSelected(current =>
-        current?.id === updated.id ? updated : current
+        current?.id === updated.id
+          ? { ...current, title: updated.title }
+          : current
       );
 
       cancelEditing();
-      await refresh();
+    }, 'Livro atualizado com sucesso!');
+  }
 
-      setMessage('Livro atualizado com sucesso!');
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-  };
+  async function changeBookStatus(
+    bookId: number,
+    action: 'reading' | 'read' | 'unread',
+    successMessage: string
+  ) {
+    await run(async () => {
+      await request(`/books/${bookId}/${action}`, {
+        method: 'PATCH',
+      });
+    }, successMessage);
+  }
 
-  // ==========================================
-  // SORTEAR LIVRO
-  // ==========================================
+  async function deleteBook(book: Book) {
+    const confirmed = window.confirm(
+      `Excluir "${book.title}" da biblioteca?\n\n` +
+      'O título será removido permanentemente. ' +
+      'Essa ação não poderá ser desfeita.'
+    );
 
-  const draw = async () => {
-    if (busy) return;
+    if (!confirmed) return;
+
+    await run(async () => {
+      await request(`/books/${book.id}`, {
+        method: 'DELETE',
+      });
+
+      if (editingBook?.id === book.id) {
+        cancelEditing();
+      }
+
+      if (selected?.id === book.id) {
+        setSelected(null);
+      }
+    }, 'Livro excluído da biblioteca.');
+  }
+
+  async function draw() {
+    if (busy || deciding) return;
 
     setBusy(true);
     setSelected(null);
@@ -242,13 +252,13 @@ function App() {
     let index = 0;
 
     const interval = window.setInterval(() => {
-      setPreview(
-        options[index++ % options.length]?.title || ''
-      );
+      if (options.length > 0) {
+        setPreview(options[index++ % options.length].title);
+      }
     }, 85);
 
     try {
-      const book = await request<Book>('/draw', {
+      const result = await request<DrawResult>('/draw', {
         method: 'POST',
       });
 
@@ -256,7 +266,7 @@ function App() {
         window.setTimeout(resolve, 1200)
       );
 
-      setSelected(book);
+      setSelected(result);
       await refresh();
     } catch (error) {
       setMessage((error as Error).message);
@@ -265,27 +275,57 @@ function App() {
       setPreview('');
       setBusy(false);
     }
-  };
+  }
 
-  // ==========================================
-  // FILTRAR E ORDENAR LIVROS
-  // ==========================================
+  async function decide(decision: Decision) {
+    if (!selected || deciding) return;
+
+    setDeciding(true);
+
+    try {
+      const result = await request<{
+        book: Book;
+        decision: Decision;
+        draw_id: number;
+      }>(`/draw/${selected.draw_id}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({ decision }),
+      });
+
+      setSelected(null);
+      await refresh();
+
+      setMessage(
+        result.decision === 'vou_ler'
+          ? `"${result.book.title}" foi para Lendo! 📖`
+          : `"${result.book.title}" continua em Quero ler.`
+      );
+    } catch (error) {
+      setMessage((error as Error).message);
+      await refresh().catch(() => undefined);
+    } finally {
+      setDeciding(false);
+    }
+  }
 
   const pending = books.filter(
     book => book.status === 'quero_ler'
+  );
+
+  const reading = books.filter(
+    book => book.status === 'lendo'
   );
 
   const done = books.filter(
     book => book.status === 'ja_li'
   );
 
-  const visibleBooks = (tab === 'quero_ler' ? pending : done)
+  const visibleBooks = books
+    .filter(book => book.status === tab)
     .filter(book =>
       book.title
         .toLocaleLowerCase('pt-BR')
-        .includes(
-          search.trim().toLocaleLowerCase('pt-BR')
-        )
+        .includes(search.trim().toLocaleLowerCase('pt-BR'))
     )
     .sort((a, b) =>
       sortOrder === 'asc'
@@ -293,17 +333,38 @@ function App() {
         : b.title.localeCompare(a.title, 'pt-BR')
     );
 
-  // ==========================================
-  // INTERFACE PRINCIPAL
-  // ==========================================
+  const filteredHistory = history.filter(item =>
+    item.title
+      .toLocaleLowerCase('pt-BR')
+      .includes(
+        historySearch.trim().toLocaleLowerCase('pt-BR')
+      )
+  );
+
+  function historyList(items: DrawHistory[]) {
+    return (
+      <ul>
+        {items.map(item => (
+          <li key={item.id}>
+            <div>
+              <strong>{item.title}</strong>
+              <small>{formatDate(item.drawn_at)}</small>
+            </div>
+
+            <span className="history-decision">
+              {decisionLabel(item.decision)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <main className="app">
       <div className="backdrop" />
 
       <div className="shell">
-        {/* CABEÇALHO */}
-
         <header className="site-header">
           <img
             src="/images/capa-proximo-capitulo.png"
@@ -323,17 +384,9 @@ function App() {
           </div>
         </header>
 
-        {/* MENU */}
-
         <Navigation />
 
-        {/* PÁGINAS */}
-
         <Routes>
-          {/* ==================================
-              INÍCIO — SORTEADOR
-             ================================== */}
-
           <Route
             path="/"
             element={
@@ -347,6 +400,11 @@ function App() {
                   <div>
                     <strong>{pending.length}</strong>
                     <span>Quero ler</span>
+                  </div>
+
+                  <div>
+                    <strong>{reading.length}</strong>
+                    <span>Lendo</span>
                   </div>
 
                   <div>
@@ -367,7 +425,9 @@ function App() {
                   <button
                     type="button"
                     className="primary"
-                    disabled={busy || !pending.length}
+                    disabled={
+                      busy || deciding || pending.length === 0
+                    }
                     onClick={() => void draw()}
                   >
                     {busy
@@ -375,7 +435,11 @@ function App() {
                       : '🎲 Sortear meu próximo livro'}
                   </button>
 
-                  {/* Animação do sorteio */}
+                  {pending.length === 0 && (
+                    <p className="empty">
+                      Nenhum livro disponível em Quero ler.
+                    </p>
+                  )}
 
                   {busy && (
                     <p className="reveal" role="status">
@@ -383,12 +447,11 @@ function App() {
                     </p>
                   )}
 
-                  {/* Capa mágica do resultado */}
-
                   {selected && !busy && (
                     <div className="result">
                       <small className="draw-result-heading">
-                        ✨ O destino escolheu sua próxima história...
+                        ✨ O destino escolheu sua próxima
+                        história...
                       </small>
 
                       <div className="draw-book-cover">
@@ -416,72 +479,49 @@ function App() {
                       <div className="actions draw-actions">
                         <button
                           type="button"
+                          disabled={deciding}
                           onClick={() =>
-                            setMessage('Boa leitura! 📖')
+                            void decide('vou_ler')
                           }
                         >
-                          📖 Vou ler este
+                          📖 Vou ler
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => void draw()}
-                        >
-                          🎲 Sortear outro
-                        </button>
-
-                        <button
-                          type="button"
+                          disabled={deciding}
                           onClick={() =>
-                            void run(async () => {
-                              await request(
-                                `/books/${selected.id}/read`,
-                                { method: 'PATCH' }
-                              );
-
-                              setSelected(null);
-                            })
+                            void decide('agora_nao')
                           }
                         >
-                          ✅ Já li este livro
+                          ↩️ Agora não
                         </button>
                       </div>
                     </div>
                   )}
                 </section>
 
-                {/* Últimos sorteios */}
-
                 <section className="panel">
                   <h2>📜 Últimos sorteios</h2>
 
                   {history.length > 0 ? (
-                    <ul>
-                      {history.slice(0, 5).map(item => (
-                        <li key={item.id}>
-                          <strong>{item.title}</strong>
-
-                          <small>
-                            {new Date(
-                              item.drawn_at
-                            ).toLocaleDateString('pt-BR')}
-                          </small>
-                        </li>
-                      ))}
-                    </ul>
+                    historyList(history.slice(0, 3))
                   ) : (
                     <p className="empty">
-                      Nenhum sorteio realizado ainda.
+                      Nenhum sorteio nos últimos 30 dias.
                     </p>
                   )}
+
+                  <NavLink
+                    className="page-link"
+                    to="/historico"
+                  >
+                    Ver histórico completo
+                  </NavLink>
                 </section>
               </>
             }
           />
-
-          {/* ==================================
-              MINHA BIBLIOTECA
-             ================================== */}
 
           <Route
             path="/biblioteca"
@@ -498,8 +538,6 @@ function App() {
                     Todos os seus livros em um só lugar.
                   </p>
 
-                  {/* Pesquisa e ordenação */}
-
                   <div className="library-filters">
                     <input
                       type="search"
@@ -514,12 +552,12 @@ function App() {
                     <button
                       type="button"
                       className="sort-toggle"
+                      title="Alternar ordem alfabética"
                       aria-label={
                         sortOrder === 'asc'
                           ? 'Ordem A a Z. Clique para inverter.'
                           : 'Ordem Z a A. Clique para inverter.'
                       }
-                      title="Alternar ordem alfabética"
                       onClick={() =>
                         setSortOrder(current =>
                           current === 'asc'
@@ -541,8 +579,6 @@ function App() {
                     </button>
                   </div>
 
-                  {/* Cadastro de livros */}
-
                   <form onSubmit={event => void add(event)}>
                     <input
                       aria-label="Título do livro"
@@ -559,8 +595,6 @@ function App() {
                       + Adicionar
                     </button>
                   </form>
-
-                  {/* Abas Quero ler e Já li */}
 
                   <nav
                     className="library-tabs"
@@ -579,6 +613,16 @@ function App() {
                     <button
                       type="button"
                       className={
+                        tab === 'lendo' ? 'active' : ''
+                      }
+                      onClick={() => setTab('lendo')}
+                    >
+                      📖 Lendo ({reading.length})
+                    </button>
+
+                    <button
+                      type="button"
+                      className={
                         tab === 'ja_li' ? 'active' : ''
                       }
                       onClick={() => setTab('ja_li')}
@@ -586,8 +630,6 @@ function App() {
                       ✅ Já li ({done.length})
                     </button>
                   </nav>
-
-                  {/* Lista de livros */}
 
                   <ul>
                     {visibleBooks.map(book => (
@@ -597,10 +639,7 @@ function App() {
 
                           {book.read_at && (
                             <small>
-                              Lido em{' '}
-                              {new Date(
-                                book.read_at
-                              ).toLocaleDateString('pt-BR')}
+                              Lido em {formatDate(book.read_at)}
                             </small>
                           )}
                         </div>
@@ -608,80 +647,106 @@ function App() {
                         <div className="actions">
                           <button
                             type="button"
-                            onClick={() =>
-                              startEditing(book)
-                            }
+                            onClick={() => startEditing(book)}
                           >
                             ✏️ Editar
                           </button>
 
+                          {tab === 'quero_ler' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void changeBookStatus(
+                                    book.id,
+                                    'reading',
+                                    'Livro movido para Lendo!'
+                                  )
+                                }
+                              >
+                                📖 Começar leitura
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void changeBookStatus(
+                                    book.id,
+                                    'read',
+                                    'Livro marcado como concluído!'
+                                  )
+                                }
+                              >
+                                ✅ Já li
+                              </button>
+                            </>
+                          )}
+
+                          {tab === 'lendo' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void changeBookStatus(
+                                    book.id,
+                                    'read',
+                                    'Leitura concluída!'
+                                  )
+                                }
+                              >
+                                ✅ Concluído
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void changeBookStatus(
+                                    book.id,
+                                    'unread',
+                                    'Livro devolvido para Quero ler!'
+                                  )
+                                }
+                              >
+                                ↩️ Ler depois
+                              </button>
+                            </>
+                          )}
+
+                          {tab === 'ja_li' && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void changeBookStatus(
+                                  book.id,
+                                  'unread',
+                                  'Livro devolvido para Quero ler!'
+                                )
+                              }
+                            >
+                              ↩️ Quero ler novamente
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() =>
-                              void run(() =>
-                                request(
-                                  `/books/${book.id}/${
-                                    tab === 'quero_ler'
-                                      ? 'read'
-                                      : 'unread'
-                                  }`,
-                                  { method: 'PATCH' }
-                                )
-                              )
+                              void deleteBook(book)
                             }
                           >
-                            {tab === 'quero_ler'
-                              ? 'Marcar lido'
-                              : 'Devolver'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Excluir "${book.title}"?`
-                                )
-                              ) {
-                                void run(async () => {
-                                  await request(
-                                    `/books/${book.id}`,
-                                    { method: 'DELETE' }
-                                  );
-
-                                  if (
-                                    editingBook?.id === book.id
-                                  ) {
-                                    cancelEditing();
-                                  }
-
-                                  if (
-                                    selected?.id === book.id
-                                  ) {
-                                    setSelected(null);
-                                  }
-                                });
-                              }
-                            }}
-                          >
-                            Excluir
+                            🗑️ Excluir
                           </button>
                         </div>
                       </li>
                     ))}
                   </ul>
 
-                  {/* Lista vazia */}
-
                   {!visibleBooks.length && (
                     <p className="empty">
                       {search.trim()
-                        ? 'Nenhum livro encontrado para sua pesquisa.'
+                        ? 'Nenhum livro encontrado.'
                         : 'Nenhum livro nesta lista ainda.'}
                     </p>
                   )}
-
-                  {/* Resultados da pesquisa */}
 
                   {search.trim() && (
                     <p className="empty" role="status">
@@ -693,15 +758,12 @@ function App() {
                   )}
                 </section>
 
-                {/* Edição */}
-
                 {editingBook && (
                   <section className="panel">
                     <h2>✏️ Editar livro</h2>
 
                     <p>
-                      Alterando:{' '}
-                      <strong>{editingBook.title}</strong>
+                      Alterando: <strong>{editingBook.title}</strong>
                     </p>
 
                     <form
@@ -737,9 +799,49 @@ function App() {
             }
           />
 
-          {/* ==================================
-              IMPORTAR LIVROS
-             ================================== */}
+          <Route
+            path="/historico"
+            element={
+              <section className="panel">
+                <span className="eyebrow">
+                  SUAS DESCOBERTAS LITERÁRIAS
+                </span>
+
+                <h2>📜 Histórico de sorteios</h2>
+
+                <p>
+                  Sorteios realizados nos últimos 30 dias.
+                </p>
+
+                <div className="library-filters">
+                  <input
+                    type="search"
+                    aria-label="Pesquisar histórico"
+                    placeholder="🔎 Pesquisar título sorteado..."
+                    value={historySearch}
+                    onChange={event =>
+                      setHistorySearch(event.target.value)
+                    }
+                  />
+                </div>
+
+                {filteredHistory.length > 0 ? (
+                  historyList(filteredHistory)
+                ) : (
+                  <p className="empty">
+                    Nenhum sorteio encontrado.
+                  </p>
+                )}
+
+                <p className="empty" role="status">
+                  {filteredHistory.length}{' '}
+                  {filteredHistory.length === 1
+                    ? 'sorteio encontrado'
+                    : 'sorteios encontrados'}
+                </p>
+              </section>
+            }
+          />
 
           <Route
             path="/importar"
@@ -772,10 +874,6 @@ function App() {
             }
           />
 
-          {/* ==================================
-              LOGIN
-             ================================== */}
-
           <Route
             path="/login"
             element={
@@ -803,15 +901,11 @@ function App() {
             }
           />
 
-          {/* ENDEREÇO NÃO ENCONTRADO */}
-
           <Route
             path="*"
             element={<Navigate to="/" replace />}
           />
         </Routes>
-
-        {/* NOTIFICAÇÕES */}
 
         {message && (
           <div role="status" className="notice">
@@ -827,8 +921,6 @@ function App() {
           </div>
         )}
 
-        {/* RODAPÉ */}
-
         <footer>
           Próximo Capítulo · Sua biblioteca, suas histórias.
         </footer>
@@ -836,10 +928,6 @@ function App() {
     </main>
   );
 }
-
-// ==========================================
-// INICIALIZAÇÃO DO REACT
-// ==========================================
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

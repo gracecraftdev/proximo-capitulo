@@ -1,6 +1,7 @@
 
 from datetime import datetime, timezone
 from functools import lru_cache
+from typing import Literal
 import os
 import random
 import re
@@ -9,6 +10,7 @@ import unicodedata
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
 from database import create_database_engine
@@ -17,12 +19,12 @@ from schema import metadata
 
 
 # ==========================================
-# CONFIGURAÇÕES
+# CONFIGURAÇÕES DA API
 # ==========================================
 
 app = FastAPI(
     title="Próximo Capítulo API",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 local_origins = [
@@ -44,13 +46,46 @@ app.add_middleware(
 
 
 # ==========================================
-# CONEXÃO E REPOSITÓRIO
+# CONEXÃO, TABELAS E MIGRAÇÃO
 # ==========================================
+
+def migrate_database(engine):
+    """
+    Atualiza bancos criados por versões anteriores.
+
+    A coluna decision é adicionada somente quando
+    ainda não existe.
+
+    Os livros e sorteios existentes são preservados.
+    """
+
+    inspector = inspect(engine)
+
+    if "draws" not in inspector.get_table_names():
+        return
+
+    columns = {
+        column["name"]
+        for column in inspector.get_columns("draws")
+    }
+
+    if "decision" not in columns:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE draws "
+                    "ADD COLUMN decision TEXT"
+                )
+            )
+
 
 @lru_cache(maxsize=1)
 def get_engine():
     engine = create_database_engine()
+
     metadata.create_all(engine)
+    migrate_database(engine)
+
     return engine
 
 
@@ -58,19 +93,81 @@ def get_repository() -> BookRepository:
     return BookRepository(get_engine())
 
 
+# ==========================================
+# FUNÇÕES AUXILIARES
+# ==========================================
+
 def normalize(title: str) -> str:
-    value = unicodedata.normalize("NFKD", title.casefold())
+    value = unicodedata.normalize(
+        "NFKD",
+        title.casefold(),
+    )
 
     value = "".join(
-        char for char in value
+        char
+        for char in value
         if not unicodedata.combining(char)
     )
 
     return re.sub(r"[^a-z0-9]", "", value)
 
 
+def now_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def require_book(repo: BookRepository, book_id: int):
+    book = repo.get_book(book_id)
+
+    if book is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Livro não encontrado.",
+        )
+
+    return book
+
+
+def change_status(
+    repo: BookRepository,
+    book_id: int,
+    status: str,
+):
+    require_book(repo, book_id)
+
+    read_at = now_utc() if status == "ja_li" else None
+
+    updated = repo.update_book(
+        book_id,
+        status=status,
+        read_at=read_at,
+    )
+
+    if updated is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Livro não encontrado.",
+        )
+
+    return updated
+
+
+# ==========================================
+# MODELOS DE ENTRADA
+# ==========================================
+
 class BookInput(BaseModel):
-    title: str = Field(min_length=1, max_length=250)
+    title: str = Field(
+        min_length=1,
+        max_length=250,
+    )
+
+
+class DrawDecisionInput(BaseModel):
+    decision: Literal[
+        "vou_ler",
+        "agora_nao",
+    ]
 
 
 # ==========================================
@@ -87,7 +184,9 @@ def health():
 # ==========================================
 
 @app.get("/books")
-def list_books(repo: BookRepository = Depends(get_repository)):
+def list_books(
+    repo: BookRepository = Depends(get_repository),
+):
     return repo.list_books()
 
 
@@ -112,10 +211,15 @@ def add_book(
     existing = repo.find_by_normalized_title(key)
 
     if existing:
-        place = (
-            "Quero Ler"
-            if existing["status"] == "quero_ler"
-            else "Já Li"
+        status_names = {
+            "quero_ler": "Quero ler",
+            "lendo": "Lendo",
+            "ja_li": "Já li",
+        }
+
+        place = status_names.get(
+            existing["status"],
+            "Minha biblioteca",
         )
 
         raise HTTPException(
@@ -151,13 +255,7 @@ def edit_book(
             detail="Informe um título válido.",
         )
 
-    existing = repo.get_book(book_id)
-
-    if not existing:
-        raise HTTPException(
-            status_code=404,
-            detail="Livro não encontrado.",
-        )
+    require_book(repo, book_id)
 
     duplicate = repo.find_by_normalized_title(key)
 
@@ -181,7 +279,23 @@ def edit_book(
 
 
 # ==========================================
-# MARCAR COMO LIDO
+# MARCAR COMO LENDO
+# ==========================================
+
+@app.patch("/books/{book_id}/reading")
+def mark_reading(
+    book_id: int,
+    repo: BookRepository = Depends(get_repository),
+):
+    return change_status(
+        repo,
+        book_id,
+        "lendo",
+    )
+
+
+# ==========================================
+# MARCAR COMO CONCLUÍDO / JÁ LI
 # ==========================================
 
 @app.patch("/books/{book_id}/read")
@@ -189,16 +303,11 @@ def mark_read(
     book_id: int,
     repo: BookRepository = Depends(get_repository),
 ):
-    updated = repo.update_book(
+    return change_status(
+        repo,
         book_id,
-        status="ja_li",
-        read_at=datetime.now(timezone.utc).isoformat(),
+        "ja_li",
     )
-
-    if updated is None:
-        raise HTTPException(404, "Livro não encontrado")
-
-    return updated
 
 
 # ==========================================
@@ -210,16 +319,11 @@ def mark_unread(
     book_id: int,
     repo: BookRepository = Depends(get_repository),
 ):
-    updated = repo.update_book(
+    return change_status(
+        repo,
         book_id,
-        status="quero_ler",
-        read_at=None,
+        "quero_ler",
     )
-
-    if updated is None:
-        raise HTTPException(404, "Livro não encontrado")
-
-    return updated
 
 
 # ==========================================
@@ -232,7 +336,10 @@ def delete_book(
     repo: BookRepository = Depends(get_repository),
 ):
     if not repo.delete_book(book_id):
-        raise HTTPException(404, "Livro não encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail="Livro não encontrado.",
+        )
 
 
 # ==========================================
@@ -240,30 +347,106 @@ def delete_book(
 # ==========================================
 
 @app.post("/draw")
-def draw(repo: BookRepository = Depends(get_repository)):
+def draw(
+    repo: BookRepository = Depends(get_repository),
+):
     candidates = repo.list_pending_books()
 
     if not candidates:
         raise HTTPException(
             status_code=404,
-            detail="Adicione livros à lista Quero Ler para sortear.",
+            detail=(
+                "Não existem livros disponíveis para sorteio. "
+                "Adicione livros à lista Quero ler."
+            ),
         )
 
     book = random.choice(candidates)
 
-    repo.add_draw(
+    draw_id = repo.add_draw(
         book_id=book["id"],
         title=book["title"],
-        drawn_at=datetime.now(timezone.utc).isoformat(),
+        drawn_at=now_utc(),
     )
 
-    return book
+    # Mantém os campos originais do livro para
+    # compatibilidade com o frontend atual.
+    # O draw_id identifica este sorteio específico.
+    return {
+        **book,
+        "draw_id": draw_id,
+    }
 
 
 # ==========================================
-# HISTÓRICO
+# DECIDIR O RESULTADO DO SORTEIO
+# ==========================================
+
+@app.post("/draw/{draw_id}/decision")
+def decide_draw(
+    draw_id: int,
+    payload: DrawDecisionInput,
+    repo: BookRepository = Depends(get_repository),
+):
+    result, book = repo.decide_draw(
+        draw_id,
+        payload.decision,
+    )
+
+    if result == "missing":
+        raise HTTPException(
+            status_code=404,
+            detail="Sorteio não encontrado.",
+        )
+
+    if result == "already_decided":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Este sorteio já recebeu uma decisão."
+            ),
+        )
+
+    if result == "book_deleted":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "O livro sorteado não está mais "
+                "na biblioteca."
+            ),
+        )
+
+    if result == "status_changed":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "O livro mudou de lista após o sorteio. "
+                "Realize um novo sorteio."
+            ),
+        )
+
+    if result != "ok" or book is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Não foi possível registrar a decisão.",
+        )
+
+    return {
+        "draw_id": draw_id,
+        "decision": payload.decision,
+        "book": book,
+    }
+
+
+# ==========================================
+# HISTÓRICO DOS ÚLTIMOS 30 DIAS
 # ==========================================
 
 @app.get("/history")
-def history(repo: BookRepository = Depends(get_repository)):
-    return repo.get_history(limit=10)
+def history(
+    repo: BookRepository = Depends(get_repository),
+):
+    return repo.get_history(
+        limit=1000,
+        days=30,
+    )

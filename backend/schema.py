@@ -8,7 +8,10 @@ from sqlalchemy import (
     text,
 )
 
-# Definição das tabelas do banco
+# ==========================================
+# DEFINIÇÃO DAS TABELAS
+# ==========================================
+
 metadata = MetaData()
 
 
@@ -43,4 +46,5 @@ draws = Table(
     Column("book_id", Integer, nullable=False),
     Column("title", Text, nullable=False),
     Column("drawn_at", Text, nullable=False),
+    Column("decision", Text, nullable=True),
 )
