@@ -12,6 +12,10 @@ import {
 import './style.css';
 import './navigation.css';
 
+// ==========================================
+// TIPOS
+// ==========================================
+
 type Status = 'quero_ler' | 'lendo' | 'ja_li';
 type Decision = 'vou_ler' | 'agora_nao';
 
@@ -33,6 +37,10 @@ type DrawHistory = {
   drawn_at: string;
   decision: Decision | null;
 };
+
+// ==========================================
+// CONFIGURAÇÃO DA API
+// ==========================================
 
 const API =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -66,21 +74,14 @@ async function request<T>(
   return response.json();
 }
 
-function Navigation() {
-  return (
-    <nav className="main-navigation" aria-label="Menu principal">
-      <NavLink to="/" end>✨ Início</NavLink>
-      <NavLink to="/biblioteca">📚 Minha biblioteca</NavLink>
-      <NavLink to="/importar">📥 Importar livros</NavLink>
-      <NavLink to="/historico">📜 Histórico</NavLink>
-      <NavLink to="/login">👤 Entrar</NavLink>
-    </nav>
-  );
-}
+// ==========================================
+// FUNÇÕES AUXILIARES
+// ==========================================
 
 function decisionLabel(decision: Decision | null) {
   if (decision === 'vou_ler') return '📖 Vou ler';
   if (decision === 'agora_nao') return '↩️ Agora não';
+
   return 'Sem decisão registrada';
 }
 
@@ -96,36 +97,219 @@ function formatDate(date: string) {
       });
 }
 
+// ==========================================
+// NAVEGAÇÃO
+// ==========================================
+
+function Navigation() {
+  return (
+    <nav
+      className="main-navigation"
+      aria-label="Menu principal"
+    >
+      <NavLink to="/" end>
+        ✨ Início
+      </NavLink>
+
+      <NavLink to="/biblioteca">
+        📚 Minha biblioteca
+      </NavLink>
+
+      <NavLink to="/importar">
+        📥 Importar livros
+      </NavLink>
+
+      <NavLink to="/historico">
+        📜 Histórico
+      </NavLink>
+
+      <NavLink to="/login">
+        👤 Entrar
+      </NavLink>
+    </nav>
+  );
+}
+
+// ==========================================
+// MODAL DE CONFIRMAÇÃO DE EXCLUSÃO
+// ==========================================
+
+type DeleteModalProps = {
+  book: Book;
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
+function DeleteModal({
+  book,
+  deleting,
+  onCancel,
+  onConfirm,
+}: DeleteModalProps) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !deleting) {
+        onCancel();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener(
+        'keydown',
+        handleKeyDown
+      );
+
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [deleting, onCancel]);
+
+  return (
+    <div
+      className="confirm-overlay"
+      role="presentation"
+      onMouseDown={event => {
+        if (event.target === event.currentTarget && !deleting) {
+          onCancel();
+        }
+      }}
+    >
+      <div
+        className="confirm-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-delete-title"
+        aria-describedby="confirm-delete-description"
+      >
+        <div className="confirm-icon-wrap">
+          <span className="confirm-icon" aria-hidden="true">
+            🗑️
+          </span>
+        </div>
+
+        <h3
+          id="confirm-delete-title"
+          className="confirm-title"
+        >
+          Excluir este livro?
+        </h3>
+
+        <p className="confirm-text">
+          Tem certeza de que deseja remover
+        </p>
+
+        <p className="confirm-book">
+          “{book.title}”
+        </p>
+
+        <p
+          id="confirm-delete-description"
+          className="confirm-warning"
+        >
+          Este título será removido permanentemente da
+          sua biblioteca. Essa ação não poderá ser desfeita.
+        </p>
+
+        <div className="confirm-actions">
+          <button
+            type="button"
+            className="confirm-cancel"
+            onClick={onCancel}
+            disabled={deleting}
+            autoFocus
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            className="confirm-delete"
+            onClick={onConfirm}
+            disabled={deleting}
+          >
+            {deleting
+              ? 'Excluindo...'
+              : '🗑️ Excluir livro'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// APLICATIVO PRINCIPAL
+// ==========================================
+
 function App() {
+  // ----------------------------------------
+  // BIBLIOTECA E HISTÓRICO
+  // ----------------------------------------
+
   const [books, setBooks] = useState<Book[]>([]);
   const [history, setHistory] = useState<DrawHistory[]>([]);
+
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
 
-  const [selected, setSelected] = useState<DrawResult | null>(
-    null
-  );
+  // ----------------------------------------
+  // SORTEADOR
+  // ----------------------------------------
+
+  const [selected, setSelected] =
+    useState<DrawResult | null>(null);
+
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState('');
   const [deciding, setDeciding] = useState(false);
 
+  // ----------------------------------------
+  // FILTROS E LISTAS
+  // ----------------------------------------
+
   const [tab, setTab] = useState<Status>('quero_ler');
   const [search, setSearch] = useState('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(
-    'asc'
-  );
-  const [historySearch, setHistorySearch] = useState('');
 
-  const [editingBook, setEditingBook] = useState<Book | null>(
-    null
-  );
-  const [editingTitle, setEditingTitle] = useState('');
+  const [sortOrder, setSortOrder] =
+    useState<'asc' | 'desc'>('asc');
+
+  const [historySearch, setHistorySearch] =
+    useState('');
+
+  // ----------------------------------------
+  // EDIÇÃO
+  // ----------------------------------------
+
+  const [editingBook, setEditingBook] =
+    useState<Book | null>(null);
+
+  const [editingTitle, setEditingTitle] =
+    useState('');
+
+  // ----------------------------------------
+  // EXCLUSÃO
+  // ----------------------------------------
+
+  const [bookToDelete, setBookToDelete] =
+    useState<Book | null>(null);
+
+  const [deleting, setDeleting] = useState(false);
+
+  // ==========================================
+  // CARREGAMENTO DOS DADOS
+  // ==========================================
 
   async function refresh() {
-    const [loadedBooks, loadedHistory] = await Promise.all([
-      request<Book[]>('/books'),
-      request<DrawHistory[]>('/history'),
-    ]);
+    const [loadedBooks, loadedHistory] =
+      await Promise.all([
+        request<Book[]>('/books'),
+        request<DrawHistory[]>('/history'),
+      ]);
 
     setBooks(loadedBooks);
     setHistory(loadedHistory);
@@ -137,12 +321,17 @@ function App() {
     });
   }, []);
 
+  // ==========================================
+  // EXECUÇÃO DE OPERAÇÕES
+  // ==========================================
+
   async function run(
     operation: () => Promise<void>,
     successMessage?: string
   ) {
     try {
       setMessage('');
+
       await operation();
       await refresh();
 
@@ -153,6 +342,10 @@ function App() {
       setMessage((error as Error).message);
     }
   }
+
+  // ==========================================
+  // CADASTRAR LIVRO
+  // ==========================================
 
   async function add(event: React.FormEvent) {
     event.preventDefault();
@@ -167,6 +360,10 @@ function App() {
     }, 'Livro adicionado à lista Quero ler!');
   }
 
+  // ==========================================
+  // EDITAR LIVRO
+  // ==========================================
+
   function startEditing(book: Book) {
     setEditingBook(book);
     setEditingTitle(book.title);
@@ -178,7 +375,9 @@ function App() {
     setEditingTitle('');
   }
 
-  async function saveEditing(event: React.FormEvent) {
+  async function saveEditing(
+    event: React.FormEvent
+  ) {
     event.preventDefault();
 
     if (!editingBook) return;
@@ -188,19 +387,28 @@ function App() {
         `/books/${editingBook.id}`,
         {
           method: 'PATCH',
-          body: JSON.stringify({ title: editingTitle }),
+          body: JSON.stringify({
+            title: editingTitle,
+          }),
         }
       );
 
       setSelected(current =>
         current?.id === updated.id
-          ? { ...current, title: updated.title }
+          ? {
+              ...current,
+              title: updated.title,
+            }
           : current
       );
 
       cancelEditing();
     }, 'Livro atualizado com sucesso!');
   }
+
+  // ==========================================
+  // MUDAR STATUS DO LIVRO
+  // ==========================================
 
   async function changeBookStatus(
     bookId: number,
@@ -214,16 +422,30 @@ function App() {
     }, successMessage);
   }
 
-  async function deleteBook(book: Book) {
-    const confirmed = window.confirm(
-      `Excluir "${book.title}" da biblioteca?\n\n` +
-      'O título será removido permanentemente. ' +
-      'Essa ação não poderá ser desfeita.'
-    );
+  // ==========================================
+  // EXCLUIR LIVRO COM MODAL
+  // ==========================================
 
-    if (!confirmed) return;
+  function askToDelete(book: Book) {
+    setBookToDelete(book);
+    setMessage('');
+  }
 
-    await run(async () => {
+  function cancelDelete() {
+    if (deleting) return;
+
+    setBookToDelete(null);
+  }
+
+  async function confirmDelete() {
+    if (!bookToDelete || deleting) return;
+
+    const book = bookToDelete;
+
+    setDeleting(true);
+    setMessage('');
+
+    try {
       await request(`/books/${book.id}`, {
         method: 'DELETE',
       });
@@ -235,8 +457,24 @@ function App() {
       if (selected?.id === book.id) {
         setSelected(null);
       }
-    }, 'Livro excluído da biblioteca.');
+
+      await refresh();
+
+      setBookToDelete(null);
+
+      setMessage(
+        `"${book.title}" foi excluído da biblioteca.`
+      );
+    } catch (error) {
+      setMessage((error as Error).message);
+    } finally {
+      setDeleting(false);
+    }
   }
+
+  // ==========================================
+  // SORTEAR LIVRO
+  // ==========================================
 
   async function draw() {
     if (busy || deciding) return;
@@ -253,14 +491,19 @@ function App() {
 
     const interval = window.setInterval(() => {
       if (options.length > 0) {
-        setPreview(options[index++ % options.length].title);
+        setPreview(
+          options[index++ % options.length].title
+        );
       }
     }, 85);
 
     try {
-      const result = await request<DrawResult>('/draw', {
-        method: 'POST',
-      });
+      const result = await request<DrawResult>(
+        '/draw',
+        {
+          method: 'POST',
+        }
+      );
 
       await new Promise(resolve =>
         window.setTimeout(resolve, 1200)
@@ -272,27 +515,37 @@ function App() {
       setMessage((error as Error).message);
     } finally {
       window.clearInterval(interval);
+
       setPreview('');
       setBusy(false);
     }
   }
 
+  // ==========================================
+  // DECIDIR O RESULTADO DO SORTEIO
+  // ==========================================
+
   async function decide(decision: Decision) {
     if (!selected || deciding) return;
 
     setDeciding(true);
+    setMessage('');
 
     try {
       const result = await request<{
         book: Book;
         decision: Decision;
         draw_id: number;
-      }>(`/draw/${selected.draw_id}/decision`, {
-        method: 'POST',
-        body: JSON.stringify({ decision }),
-      });
+      }>(
+        `/draw/${selected.draw_id}/decision`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ decision }),
+        }
+      );
 
       setSelected(null);
+
       await refresh();
 
       setMessage(
@@ -302,11 +555,16 @@ function App() {
       );
     } catch (error) {
       setMessage((error as Error).message);
+
       await refresh().catch(() => undefined);
     } finally {
       setDeciding(false);
     }
   }
+
+  // ==========================================
+  // LISTAS
+  // ==========================================
 
   const pending = books.filter(
     book => book.status === 'quero_ler'
@@ -320,12 +578,18 @@ function App() {
     book => book.status === 'ja_li'
   );
 
+  // ==========================================
+  // PESQUISA E ORDENAÇÃO
+  // ==========================================
+
   const visibleBooks = books
     .filter(book => book.status === tab)
     .filter(book =>
       book.title
         .toLocaleLowerCase('pt-BR')
-        .includes(search.trim().toLocaleLowerCase('pt-BR'))
+        .includes(
+          search.trim().toLocaleLowerCase('pt-BR')
+        )
     )
     .sort((a, b) =>
       sortOrder === 'asc'
@@ -337,9 +601,15 @@ function App() {
     item.title
       .toLocaleLowerCase('pt-BR')
       .includes(
-        historySearch.trim().toLocaleLowerCase('pt-BR')
+        historySearch
+          .trim()
+          .toLocaleLowerCase('pt-BR')
       )
   );
+
+  // ==========================================
+  // COMPONENTE DO HISTÓRICO
+  // ==========================================
 
   function historyList(items: DrawHistory[]) {
     return (
@@ -348,7 +618,10 @@ function App() {
           <li key={item.id}>
             <div>
               <strong>{item.title}</strong>
-              <small>{formatDate(item.drawn_at)}</small>
+
+              <small>
+                {formatDate(item.drawn_at)}
+              </small>
             </div>
 
             <span className="history-decision">
@@ -360,11 +633,19 @@ function App() {
     );
   }
 
+  // ==========================================
+  // INTERFACE
+  // ==========================================
+
   return (
     <main className="app">
       <div className="backdrop" />
 
       <div className="shell">
+        {/* ==================================
+            CABEÇALHO
+           ================================== */}
+
         <header className="site-header">
           <img
             src="/images/capa-proximo-capitulo.png"
@@ -384,9 +665,19 @@ function App() {
           </div>
         </header>
 
+        {/* NAVEGAÇÃO */}
+
         <Navigation />
 
+        {/* ==================================
+            PÁGINAS
+           ================================== */}
+
         <Routes>
+          {/* ==================================
+              INÍCIO — SORTEADOR
+             ================================== */}
+
           <Route
             path="/"
             element={
@@ -418,15 +709,21 @@ function App() {
                     UMA NOVA HISTÓRIA ESPERA POR VOCÊ
                   </span>
 
-                  <h2>Qual será sua próxima leitura?</h2>
+                  <h2>
+                    Qual será sua próxima leitura?
+                  </h2>
 
-                  <p>O destino está entre as páginas.</p>
+                  <p>
+                    O destino está entre as páginas.
+                  </p>
 
                   <button
                     type="button"
                     className="primary"
                     disabled={
-                      busy || deciding || pending.length === 0
+                      busy ||
+                      deciding ||
+                      pending.length === 0
                     }
                     onClick={() => void draw()}
                   >
@@ -442,10 +739,15 @@ function App() {
                   )}
 
                   {busy && (
-                    <p className="reveal" role="status">
+                    <p
+                      className="reveal"
+                      role="status"
+                    >
                       {preview}
                     </p>
                   )}
+
+                  {/* CAPA MÁGICA */}
 
                   {selected && !busy && (
                     <div className="result">
@@ -465,7 +767,9 @@ function App() {
                             SEU PRÓXIMO CAPÍTULO
                           </span>
 
-                          <h3>{selected.title}</h3>
+                          <h3>
+                            {selected.title}
+                          </h3>
 
                           <span
                             className="draw-book-ornament"
@@ -501,11 +805,17 @@ function App() {
                   )}
                 </section>
 
+                {/* ÚLTIMOS SORTEIOS */}
+
                 <section className="panel">
-                  <h2>📜 Últimos sorteios</h2>
+                  <h2>
+                    📜 Últimos sorteios
+                  </h2>
 
                   {history.length > 0 ? (
-                    historyList(history.slice(0, 3))
+                    historyList(
+                      history.slice(0, 3)
+                    )
                   ) : (
                     <p className="empty">
                       Nenhum sorteio nos últimos 30 dias.
@@ -523,6 +833,10 @@ function App() {
             }
           />
 
+          {/* ==================================
+              MINHA BIBLIOTECA
+             ================================== */}
+
           <Route
             path="/biblioteca"
             element={
@@ -532,11 +846,15 @@ function App() {
                     ORGANIZE SUAS HISTÓRIAS
                   </span>
 
-                  <h2>Minha biblioteca</h2>
+                  <h2>
+                    Minha biblioteca
+                  </h2>
 
                   <p>
                     Todos os seus livros em um só lugar.
                   </p>
+
+                  {/* PESQUISA */}
 
                   <div className="library-filters">
                     <input
@@ -570,16 +888,24 @@ function App() {
                         className="sort-icon"
                         aria-hidden="true"
                       >
-                        {sortOrder === 'asc' ? '↓' : '↑'}
+                        {sortOrder === 'asc'
+                          ? '↓'
+                          : '↑'}
                       </span>
 
                       <span className="sort-label">
-                        {sortOrder === 'asc' ? 'A–Z' : 'Z–A'}
+                        {sortOrder === 'asc'
+                          ? 'A–Z'
+                          : 'Z–A'}
                       </span>
                     </button>
                   </div>
 
-                  <form onSubmit={event => void add(event)}>
+                  {/* ADICIONAR LIVRO */}
+
+                  <form
+                    onSubmit={event => void add(event)}
+                  >
                     <input
                       aria-label="Título do livro"
                       value={title}
@@ -596,6 +922,8 @@ function App() {
                     </button>
                   </form>
 
+                  {/* ABAS */}
+
                   <nav
                     className="library-tabs"
                     aria-label="Listas de leitura"
@@ -603,9 +931,13 @@ function App() {
                     <button
                       type="button"
                       className={
-                        tab === 'quero_ler' ? 'active' : ''
+                        tab === 'quero_ler'
+                          ? 'active'
+                          : ''
                       }
-                      onClick={() => setTab('quero_ler')}
+                      onClick={() =>
+                        setTab('quero_ler')
+                      }
                     >
                       📚 Quero ler ({pending.length})
                     </button>
@@ -613,9 +945,13 @@ function App() {
                     <button
                       type="button"
                       className={
-                        tab === 'lendo' ? 'active' : ''
+                        tab === 'lendo'
+                          ? 'active'
+                          : ''
                       }
-                      onClick={() => setTab('lendo')}
+                      onClick={() =>
+                        setTab('lendo')
+                      }
                     >
                       📖 Lendo ({reading.length})
                     </button>
@@ -623,23 +959,34 @@ function App() {
                     <button
                       type="button"
                       className={
-                        tab === 'ja_li' ? 'active' : ''
+                        tab === 'ja_li'
+                          ? 'active'
+                          : ''
                       }
-                      onClick={() => setTab('ja_li')}
+                      onClick={() =>
+                        setTab('ja_li')
+                      }
                     >
                       ✅ Já li ({done.length})
                     </button>
                   </nav>
 
+                  {/* LIVROS */}
+
                   <ul>
                     {visibleBooks.map(book => (
                       <li key={book.id}>
                         <div>
-                          <strong>{book.title}</strong>
+                          <strong>
+                            {book.title}
+                          </strong>
 
                           {book.read_at && (
                             <small>
-                              Lido em {formatDate(book.read_at)}
+                              Lido em{' '}
+                              {formatDate(
+                                book.read_at
+                              )}
                             </small>
                           )}
                         </div>
@@ -647,10 +994,14 @@ function App() {
                         <div className="actions">
                           <button
                             type="button"
-                            onClick={() => startEditing(book)}
+                            onClick={() =>
+                              startEditing(book)
+                            }
                           >
                             ✏️ Editar
                           </button>
+
+                          {/* QUERO LER */}
 
                           {tab === 'quero_ler' && (
                             <>
@@ -682,6 +1033,8 @@ function App() {
                             </>
                           )}
 
+                          {/* LENDO */}
+
                           {tab === 'lendo' && (
                             <>
                               <button
@@ -712,6 +1065,8 @@ function App() {
                             </>
                           )}
 
+                          {/* JÁ LI */}
+
                           {tab === 'ja_li' && (
                             <button
                               type="button"
@@ -727,10 +1082,12 @@ function App() {
                             </button>
                           )}
 
+                          {/* EXCLUIR */}
+
                           <button
                             type="button"
                             onClick={() =>
-                              void deleteBook(book)
+                              askToDelete(book)
                             }
                           >
                             🗑️ Excluir
@@ -749,7 +1106,10 @@ function App() {
                   )}
 
                   {search.trim() && (
-                    <p className="empty" role="status">
+                    <p
+                      className="empty"
+                      role="status"
+                    >
                       {visibleBooks.length}{' '}
                       {visibleBooks.length === 1
                         ? 'livro encontrado'
@@ -758,12 +1118,19 @@ function App() {
                   )}
                 </section>
 
+                {/* FORMULÁRIO DE EDIÇÃO */}
+
                 {editingBook && (
                   <section className="panel">
-                    <h2>✏️ Editar livro</h2>
+                    <h2>
+                      ✏️ Editar livro
+                    </h2>
 
                     <p>
-                      Alterando: <strong>{editingBook.title}</strong>
+                      Alterando:{' '}
+                      <strong>
+                        {editingBook.title}
+                      </strong>
                     </p>
 
                     <form
@@ -775,7 +1142,9 @@ function App() {
                         aria-label="Novo título do livro"
                         value={editingTitle}
                         onChange={event =>
-                          setEditingTitle(event.target.value)
+                          setEditingTitle(
+                            event.target.value
+                          )
                         }
                         maxLength={250}
                         required
@@ -799,6 +1168,10 @@ function App() {
             }
           />
 
+          {/* ==================================
+              HISTÓRICO
+             ================================== */}
+
           <Route
             path="/historico"
             element={
@@ -807,7 +1180,9 @@ function App() {
                   SUAS DESCOBERTAS LITERÁRIAS
                 </span>
 
-                <h2>📜 Histórico de sorteios</h2>
+                <h2>
+                  📜 Histórico de sorteios
+                </h2>
 
                 <p>
                   Sorteios realizados nos últimos 30 dias.
@@ -820,7 +1195,9 @@ function App() {
                     placeholder="🔎 Pesquisar título sorteado..."
                     value={historySearch}
                     onChange={event =>
-                      setHistorySearch(event.target.value)
+                      setHistorySearch(
+                        event.target.value
+                      )
                     }
                   />
                 </div>
@@ -833,7 +1210,10 @@ function App() {
                   </p>
                 )}
 
-                <p className="empty" role="status">
+                <p
+                  className="empty"
+                  role="status"
+                >
                   {filteredHistory.length}{' '}
                   {filteredHistory.length === 1
                     ? 'sorteio encontrado'
@@ -843,6 +1223,10 @@ function App() {
             }
           />
 
+          {/* ==================================
+              IMPORTAR LIVROS
+             ================================== */}
+
           <Route
             path="/importar"
             element={
@@ -851,7 +1235,9 @@ function App() {
                   TRAGA SUAS HISTÓRIAS
                 </span>
 
-                <h2>📥 Importar biblioteca</h2>
+                <h2>
+                  📥 Importar biblioteca
+                </h2>
 
                 <p>
                   Em breve, você poderá importar sua
@@ -874,6 +1260,10 @@ function App() {
             }
           />
 
+          {/* ==================================
+              LOGIN
+             ================================== */}
+
           <Route
             path="/login"
             element={
@@ -882,7 +1272,9 @@ function App() {
                   SUA BIBLIOTECA PESSOAL
                 </span>
 
-                <h2>✨ Entre na sua biblioteca</h2>
+                <h2>
+                  ✨ Entre na sua biblioteca
+                </h2>
 
                 <p>
                   Estamos preparando o acesso por e-mail,
@@ -894,26 +1286,42 @@ function App() {
                   marrom e dourado que você escolheu.
                 </p>
 
-                <NavLink className="page-link" to="/">
+                <NavLink
+                  className="page-link"
+                  to="/"
+                >
                   Voltar ao início
                 </NavLink>
               </section>
             }
           />
 
+          {/* ENDEREÇO DESCONHECIDO */}
+
           <Route
             path="*"
-            element={<Navigate to="/" replace />}
+            element={
+              <Navigate to="/" replace />
+            }
           />
         </Routes>
 
+        {/* ==================================
+            NOTIFICAÇÕES
+           ================================== */}
+
         {message && (
-          <div role="status" className="notice">
+          <div
+            role="status"
+            className="notice"
+          >
             {message}
 
             <button
               type="button"
-              onClick={() => setMessage('')}
+              onClick={() =>
+                setMessage('')
+              }
               aria-label="Fechar notificação"
             >
               ×
@@ -921,15 +1329,39 @@ function App() {
           </div>
         )}
 
+        {/* RODAPÉ */}
+
         <footer>
-          Próximo Capítulo · Sua biblioteca, suas histórias.
+          Próximo Capítulo · Sua biblioteca,
+          suas histórias.
         </footer>
       </div>
+
+      {/* ==================================
+          MODAL DE EXCLUSÃO
+         ================================== */}
+
+      {bookToDelete && (
+        <DeleteModal
+          book={bookToDelete}
+          deleting={deleting}
+          onCancel={cancelDelete}
+          onConfirm={() =>
+            void confirmDelete()
+          }
+        />
+      )}
     </main>
   );
 }
 
-createRoot(document.getElementById('root')!).render(
+// ==========================================
+// INICIALIZAÇÃO
+// ==========================================
+
+createRoot(
+  document.getElementById('root')!
+).render(
   <React.StrictMode>
     <BrowserRouter>
       <App />
