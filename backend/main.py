@@ -1,88 +1,73 @@
 
 from datetime import datetime, timezone
-from pathlib import Path
-from contextlib import contextmanager
+from functools import lru_cache
+import os
 import random
 import re
-import sqlite3
 import unicodedata
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
+
+from database import create_database_engine
+from repository import BookRepository
+from schema import metadata
 
 
 # ==========================================
 # CONFIGURAÇÕES
 # ==========================================
 
-DB = Path(__file__).with_name("books.db")
-
 app = FastAPI(
     title="Próximo Capítulo API",
-    version="0.2.0"
+    version="0.3.0",
 )
+
+local_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+
+if frontend_url:
+    local_origins.append(frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173"
-    ],
+    allow_origins=local_origins,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 
 # ==========================================
-# BANCO DE DADOS
+# CONEXÃO E REPOSITÓRIO
 # ==========================================
 
-@contextmanager
-def connection():
-    con = sqlite3.connect(DB)
-    con.row_factory = sqlite3.Row
+@lru_cache(maxsize=1)
+def get_engine():
+    engine = create_database_engine()
+    metadata.create_all(engine)
+    return engine
 
-    try:
-        yield con
-        con.commit()
-    finally:
-        con.close()
+
+def get_repository() -> BookRepository:
+    return BookRepository(get_engine())
 
 
 def normalize(title: str) -> str:
     value = unicodedata.normalize("NFKD", title.casefold())
+
     value = "".join(
-        c for c in value
-        if not unicodedata.combining(c)
+        char for char in value
+        if not unicodedata.combining(char)
     )
+
     return re.sub(r"[^a-z0-9]", "", value)
 
-
-with connection() as con:
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            normalized_title TEXT NOT NULL UNIQUE,
-            status TEXT NOT NULL DEFAULT 'quero_ler',
-            read_at TEXT
-        )
-    """)
-
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS draws (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            book_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            drawn_at TEXT NOT NULL
-        )
-    """)
-
-
-# ==========================================
-# MODELOS
-# ==========================================
 
 class BookInput(BaseModel):
     title: str = Field(min_length=1, max_length=250)
@@ -102,14 +87,8 @@ def health():
 # ==========================================
 
 @app.get("/books")
-def books():
-    with connection() as con:
-        return [
-            dict(row)
-            for row in con.execute(
-                "SELECT * FROM books ORDER BY title COLLATE NOCASE"
-            )
-        ]
+def list_books(repo: BookRepository = Depends(get_repository)):
+    return repo.list_books()
 
 
 # ==========================================
@@ -117,45 +96,40 @@ def books():
 # ==========================================
 
 @app.post("/books", status_code=201)
-def add_book(book: BookInput):
+def add_book(
+    book: BookInput,
+    repo: BookRepository = Depends(get_repository),
+):
     title = book.title.strip()
     key = normalize(title)
 
     if not key:
         raise HTTPException(
             status_code=422,
-            detail="Informe um título válido."
+            detail="Informe um título válido.",
         )
 
-    with connection() as con:
-        existing = con.execute(
-            "SELECT status FROM books WHERE normalized_title = ?",
-            (key,)
-        ).fetchone()
+    existing = repo.find_by_normalized_title(key)
 
-        if existing:
-            place = (
-                "Quero Ler"
-                if existing["status"] == "quero_ler"
-                else "Já Li"
-            )
-
-            raise HTTPException(
-                status_code=409,
-                detail=f"Livro já cadastrado na lista {place}."
-            )
-
-        cur = con.execute(
-            "INSERT INTO books(title, normalized_title) VALUES (?, ?)",
-            (title, key)
+    if existing:
+        place = (
+            "Quero Ler"
+            if existing["status"] == "quero_ler"
+            else "Já Li"
         )
 
-        return dict(
-            con.execute(
-                "SELECT * FROM books WHERE id = ?",
-                (cur.lastrowid,)
-            ).fetchone()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Livro já cadastrado na lista {place}.",
         )
+
+    try:
+        return repo.add_book(title, key)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=409,
+            detail="Livro já cadastrado.",
+        ) from None
 
 
 # ==========================================
@@ -163,57 +137,47 @@ def add_book(book: BookInput):
 # ==========================================
 
 @app.patch("/books/{book_id}")
-def edit_book(book_id: int, book: BookInput):
+def edit_book(
+    book_id: int,
+    book: BookInput,
+    repo: BookRepository = Depends(get_repository),
+):
     title = book.title.strip()
     key = normalize(title)
 
     if not key:
         raise HTTPException(
             status_code=422,
-            detail="Informe um título válido."
+            detail="Informe um título válido.",
         )
 
-    with connection() as con:
-        existing = con.execute(
-            "SELECT * FROM books WHERE id = ?",
-            (book_id,)
-        ).fetchone()
+    existing = repo.get_book(book_id)
 
-        if not existing:
-            raise HTTPException(
-                status_code=404,
-                detail="Livro não encontrado."
-            )
-
-        duplicate = con.execute(
-            """
-            SELECT id FROM books
-            WHERE normalized_title = ? AND id != ?
-            """,
-            (key, book_id)
-        ).fetchone()
-
-        if duplicate:
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe outro livro com esse título."
-            )
-
-        con.execute(
-            """
-            UPDATE books
-            SET title = ?, normalized_title = ?
-            WHERE id = ?
-            """,
-            (title, key, book_id)
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Livro não encontrado.",
         )
 
-        return dict(
-            con.execute(
-                "SELECT * FROM books WHERE id = ?",
-                (book_id,)
-            ).fetchone()
+    duplicate = repo.find_by_normalized_title(key)
+
+    if duplicate and duplicate["id"] != book_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe outro livro com esse título.",
         )
+
+    try:
+        return repo.update_book(
+            book_id,
+            title=title,
+            normalized_title=key,
+        )
+    except IntegrityError:
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe outro livro com esse título.",
+        ) from None
 
 
 # ==========================================
@@ -221,26 +185,20 @@ def edit_book(book_id: int, book: BookInput):
 # ==========================================
 
 @app.patch("/books/{book_id}/read")
-def mark_read(book_id: int):
-    with connection() as con:
-        cur = con.execute(
-            """
-            UPDATE books
-            SET status = 'ja_li', read_at = ?
-            WHERE id = ?
-            """,
-            (datetime.now(timezone.utc).isoformat(), book_id)
-        )
+def mark_read(
+    book_id: int,
+    repo: BookRepository = Depends(get_repository),
+):
+    updated = repo.update_book(
+        book_id,
+        status="ja_li",
+        read_at=datetime.now(timezone.utc).isoformat(),
+    )
 
-        if not cur.rowcount:
-            raise HTTPException(404, "Livro não encontrado")
+    if updated is None:
+        raise HTTPException(404, "Livro não encontrado")
 
-        return dict(
-            con.execute(
-                "SELECT * FROM books WHERE id = ?",
-                (book_id,)
-            ).fetchone()
-        )
+    return updated
 
 
 # ==========================================
@@ -248,26 +206,20 @@ def mark_read(book_id: int):
 # ==========================================
 
 @app.patch("/books/{book_id}/unread")
-def mark_unread(book_id: int):
-    with connection() as con:
-        cur = con.execute(
-            """
-            UPDATE books
-            SET status = 'quero_ler', read_at = NULL
-            WHERE id = ?
-            """,
-            (book_id,)
-        )
+def mark_unread(
+    book_id: int,
+    repo: BookRepository = Depends(get_repository),
+):
+    updated = repo.update_book(
+        book_id,
+        status="quero_ler",
+        read_at=None,
+    )
 
-        if not cur.rowcount:
-            raise HTTPException(404, "Livro não encontrado")
+    if updated is None:
+        raise HTTPException(404, "Livro não encontrado")
 
-        return dict(
-            con.execute(
-                "SELECT * FROM books WHERE id = ?",
-                (book_id,)
-            ).fetchone()
-        )
+    return updated
 
 
 # ==========================================
@@ -275,15 +227,12 @@ def mark_unread(book_id: int):
 # ==========================================
 
 @app.delete("/books/{book_id}", status_code=204)
-def delete_book(book_id: int):
-    with connection() as con:
-        cur = con.execute(
-            "DELETE FROM books WHERE id = ?",
-            (book_id,)
-        )
-
-        if not cur.rowcount:
-            raise HTTPException(404, "Livro não encontrado")
+def delete_book(
+    book_id: int,
+    repo: BookRepository = Depends(get_repository),
+):
+    if not repo.delete_book(book_id):
+        raise HTTPException(404, "Livro não encontrado")
 
 
 # ==========================================
@@ -291,45 +240,30 @@ def delete_book(book_id: int):
 # ==========================================
 
 @app.post("/draw")
-def draw():
-    with connection() as con:
-        candidates = con.execute(
-            "SELECT * FROM books WHERE status = 'quero_ler'"
-        ).fetchall()
+def draw(repo: BookRepository = Depends(get_repository)):
+    candidates = repo.list_pending_books()
 
-        if not candidates:
-            raise HTTPException(
-                status_code=404,
-                detail="Adicione livros à lista Quero Ler para sortear."
-            )
-
-        book = dict(random.choice(candidates))
-
-        con.execute(
-            """
-            INSERT INTO draws(book_id, title, drawn_at)
-            VALUES (?, ?, ?)
-            """,
-            (
-                book["id"],
-                book["title"],
-                datetime.now(timezone.utc).isoformat()
-            )
+    if not candidates:
+        raise HTTPException(
+            status_code=404,
+            detail="Adicione livros à lista Quero Ler para sortear.",
         )
 
-        return book
+    book = random.choice(candidates)
+
+    repo.add_draw(
+        book_id=book["id"],
+        title=book["title"],
+        drawn_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+    return book
 
 
 # ==========================================
-# HISTÓRICO DE SORTEIOS
+# HISTÓRICO
 # ==========================================
 
 @app.get("/history")
-def history():
-    with connection() as con:
-        return [
-            dict(row)
-            for row in con.execute(
-                "SELECT * FROM draws ORDER BY id DESC LIMIT 10"
-            )
-        ]
+def history(repo: BookRepository = Depends(get_repository)):
+    return repo.get_history(limit=10)

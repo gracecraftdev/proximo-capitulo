@@ -1,39 +1,37 @@
-
-import sqlite3
-
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
 
 import main
+from repository import BookRepository
+from schema import metadata
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    """Cria um banco temporário e isolado para cada teste."""
+def client(tmp_path):
+    """Cria um banco isolado para cada teste."""
     test_db = tmp_path / "test_books.db"
-    monkeypatch.setattr(main, "DB", test_db)
 
-    with main.connection() as con:
-        con.execute("""
-            CREATE TABLE books (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                normalized_title TEXT NOT NULL UNIQUE,
-                status TEXT NOT NULL DEFAULT 'quero_ler',
-                read_at TEXT
-            )
-        """)
-        con.execute("""
-            CREATE TABLE draws (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                book_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                drawn_at TEXT NOT NULL
-            )
-        """)
+    engine = create_engine(
+        f"sqlite:///{test_db.as_posix()}",
+        connect_args={"check_same_thread": False},
+    )
 
-    with TestClient(main.app) as test_client:
-        yield test_client
+    metadata.create_all(engine)
+
+    def test_repository():
+        return BookRepository(engine)
+
+    main.app.dependency_overrides[
+        main.get_repository
+    ] = test_repository
+
+    try:
+        with TestClient(main.app) as test_client:
+            yield test_client
+    finally:
+        main.app.dependency_overrides.clear()
+        engine.dispose()
 
 
 def cadastrar(client, titulo="O Hobbit"):
