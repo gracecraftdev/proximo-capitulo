@@ -24,7 +24,8 @@ type Draw = {
 // CONFIGURAÇÃO DA API
 // ==========================================
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API =
+  import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 async function request<T>(
   path: string,
@@ -46,7 +47,7 @@ async function request<T>(
   }
 
   return res.status === 204
-    ? undefined as T
+    ? (undefined as T)
     : res.json();
 }
 
@@ -63,15 +64,21 @@ function App() {
   const [selected, setSelected] = useState<Book | null>(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState('');
-  const [tab, setTab] = useState<'quero_ler' | 'ja_li'>('quero_ler');
+  const [tab, setTab] = useState<'quero_ler' | 'ja_li'>(
+    'quero_ler'
+  );
 
   // Estados da edição
-  const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [editingBook, setEditingBook] = useState<Book | null>(
+    null
+  );
   const [editingTitle, setEditingTitle] = useState('');
 
   // Estados da busca e ordenação
   const [search, setSearch] = useState('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(
+    'asc'
+  );
 
   // ==========================================
   // CARREGAR DADOS
@@ -79,8 +86,13 @@ function App() {
 
   const refresh = async () => {
     try {
-      setBooks(await request<Book[]>('/books'));
-      setHistory(await request<Draw[]>('/history'));
+      const [loadedBooks, loadedHistory] = await Promise.all([
+        request<Book[]>('/books'),
+        request<Draw[]>('/history'),
+      ]);
+
+      setBooks(loadedBooks);
+      setHistory(loadedHistory);
     } catch (error) {
       setMessage((error as Error).message);
     }
@@ -191,7 +203,9 @@ function App() {
         method: 'POST',
       });
 
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve =>
+        setTimeout(resolve, 1200)
+      );
 
       setSelected(book);
       await refresh();
@@ -220,7 +234,9 @@ function App() {
     .filter(book =>
       book.title
         .toLocaleLowerCase('pt-BR')
-        .includes(search.trim().toLocaleLowerCase('pt-BR'))
+        .includes(
+          search.trim().toLocaleLowerCase('pt-BR')
+        )
     )
     .sort((a, b) =>
       sortOrder === 'asc'
@@ -237,6 +253,8 @@ function App() {
       <div className="backdrop" />
 
       <div className="shell">
+        {/* CABEÇALHO */}
+
         <header>
           <img
             src="/images/capa-proximo-capitulo.png"
@@ -296,19 +314,51 @@ function App() {
               : '🎲 Sortear meu próximo livro'}
           </button>
 
+          {/* ANIMAÇÃO DO SORTEIO */}
+
           {busy && (
-            <p className="reveal">{preview}</p>
+            <p className="reveal" role="status">
+              {preview}
+            </p>
           )}
+
+          {/* RESULTADO COM CAPA MÁGICA */}
 
           {selected && !busy && (
             <div className="result">
-              <small>📖 Seu próximo livro será...</small>
+              <small className="draw-result-heading">
+                ✨ O destino escolheu sua próxima história...
+              </small>
 
-              <h3>{selected.title}</h3>
+              <div className="draw-book-cover">
+                <img
+                  src="/images/capa-livro-sorteado.png"
+                  alt="Capa mágica do livro sorteado"
+                />
 
-              <div className="actions">
+                <div className="draw-book-title">
+                  <span className="draw-book-caption">
+                    SEU PRÓXIMO CAPÍTULO
+                  </span>
+
+                  <h3>{selected.title}</h3>
+
+                  <span
+                    className="draw-book-ornament"
+                    aria-hidden="true"
+                  >
+                    ✦
+                  </span>
+                </div>
+              </div>
+
+              {/* AÇÕES DO SORTEIO */}
+
+              <div className="actions draw-actions">
                 <button
-                  onClick={() => setMessage('Boa leitura! 📖')}
+                  onClick={() =>
+                    setMessage('Boa leitura! 📖')
+                  }
                 >
                   📖 Vou ler este
                 </button>
@@ -367,9 +417,13 @@ function App() {
                 )
               }
             >
-              <span className="sort-icon" aria-hidden="true">
+              <span
+                className="sort-icon"
+                aria-hidden="true"
+              >
                 {sortOrder === 'asc' ? '↓' : '↑'}
               </span>
+
               <span className="sort-label">
                 {sortOrder === 'asc' ? 'A–Z' : 'Z–A'}
               </span>
@@ -397,14 +451,20 @@ function App() {
 
           <nav>
             <button
-              className={tab === 'quero_ler' ? 'active' : ''}
+              type="button"
+              className={
+                tab === 'quero_ler' ? 'active' : ''
+              }
               onClick={() => setTab('quero_ler')}
             >
               📚 Quero ler ({pending.length})
             </button>
 
             <button
-              className={tab === 'ja_li' ? 'active' : ''}
+              type="button"
+              className={
+                tab === 'ja_li' ? 'active' : ''
+              }
               onClick={() => setTab('ja_li')}
             >
               ✅ Já li ({done.length})
@@ -422,15 +482,18 @@ function App() {
                   {book.read_at && (
                     <small>
                       Lido em{' '}
-                      {new Date(book.read_at)
-                        .toLocaleDateString('pt-BR')}
+                      {new Date(
+                        book.read_at
+                      ).toLocaleDateString('pt-BR')}
                     </small>
                   )}
                 </div>
 
                 <div className="actions">
                   <button
-                    onClick={() => startEditing(book)}
+                    onClick={() =>
+                      startEditing(book)
+                    }
                   >
                     ✏️ Editar
                   </button>
@@ -456,18 +519,26 @@ function App() {
 
                   <button
                     onClick={() => {
-                      if (confirm(`Excluir "${book.title}"?`)) {
+                      if (
+                        window.confirm(
+                          `Excluir "${book.title}"?`
+                        )
+                      ) {
                         void run(async () => {
                           await request(
                             `/books/${book.id}`,
                             { method: 'DELETE' }
                           );
 
-                          if (editingBook?.id === book.id) {
+                          if (
+                            editingBook?.id === book.id
+                          ) {
                             cancelEditing();
                           }
 
-                          if (selected?.id === book.id) {
+                          if (
+                            selected?.id === book.id
+                          ) {
                             setSelected(null);
                           }
                         });
@@ -481,7 +552,7 @@ function App() {
             ))}
           </ul>
 
-          {/* MENSAGEM DE LISTA VAZIA */}
+          {/* LISTA VAZIA */}
 
           {!visibleBooks.length && (
             <p className="empty">
@@ -490,6 +561,8 @@ function App() {
                 : 'Nenhum livro nesta lista ainda.'}
             </p>
           )}
+
+          {/* CONTADOR DA PESQUISA */}
 
           {search.trim() && (
             <p className="empty" role="status">
@@ -508,10 +581,13 @@ function App() {
             <h2>✏️ Editar livro</h2>
 
             <p>
-              Alterando: <strong>{editingBook.title}</strong>
+              Alterando:{' '}
+              <strong>{editingBook.title}</strong>
             </p>
 
-            <form onSubmit={e => void saveEditing(e)}>
+            <form
+              onSubmit={e => void saveEditing(e)}
+            >
               <input
                 aria-label="Novo título do livro"
                 value={editingTitle}
@@ -549,8 +625,9 @@ function App() {
                   {draw.title}
 
                   <small>
-                    {new Date(draw.drawn_at)
-                      .toLocaleDateString('pt-BR')}
+                    {new Date(
+                      draw.drawn_at
+                    ).toLocaleDateString('pt-BR')}
                   </small>
                 </li>
               ))}
@@ -561,7 +638,10 @@ function App() {
         {/* NOTIFICAÇÕES */}
 
         {message && (
-          <div role="status" className="notice">
+          <div
+            role="status"
+            className="notice"
+          >
             {message}
 
             <button
@@ -572,6 +652,8 @@ function App() {
             </button>
           </div>
         )}
+
+        {/* RODAPÉ */}
 
         <footer>
           Próximo Capítulo · Sua biblioteca, suas histórias.
