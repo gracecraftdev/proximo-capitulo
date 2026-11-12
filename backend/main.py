@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Literal
@@ -30,6 +29,12 @@ app = FastAPI(
 local_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+    "http://localhost:5176",
+    "http://127.0.0.1:5176",
 ]
 
 frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
