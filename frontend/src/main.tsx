@@ -188,7 +188,13 @@ function DeleteModal({
       >
         <div className="confirm-icon-wrap">
           <span className="confirm-icon" aria-hidden="true">
-            🗑️
+            <img
+              src="/images/icone-excluir.png"
+              alt=""
+              width={32}
+              height={32}
+              style={{ display: 'block', objectFit: 'contain' }}
+            />
           </span>
         </div>
 
