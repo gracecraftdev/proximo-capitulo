@@ -1,1 +1,576 @@
-*{box-sizing:border-box}body{margin:0;font-family:Georgia,'Times New Roman',serif;color:#f7e8c9;background:#1a100b}button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.app{min-height:100vh;position:relative;isolation:isolate}.backdrop{position:fixed;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(18,10,6,.88),rgba(18,10,6,.72)),url('/images/biblioteca-fundo.png') center/cover no-repeat}.shell{max-width:1020px;margin:auto;padding:28px 20px}header{display:flex;align-items:center;gap:25px;margin-bottom:26px}header img{width:115px;height:115px;object-fit:cover;border-radius:17px;border:1px solid #b97428}h1{font-size:clamp(2rem,5vw,3.3rem);margin:7px 0}h2{font-size:1.6rem;margin:10px 0}p{line-height:1.5;color:#e7cfaa}.eyebrow{font:700 .7rem system-ui;letter-spacing:3px;color:#e9b765}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stats div,.panel,.hero{background:rgba(42,25,15,.82);border:1px solid rgba(233,183,101,.24);border-radius:18px;backdrop-filter:blur(6px)}.stats div{padding:20px;text-align:center}.stats strong{font-size:2rem;display:block;color:#e9b765}.stats span{font:500 .85rem system-ui}.hero{text-align:center;margin:20px 0;padding:48px 18px}.hero h2{font-size:clamp(1.7rem,4vw,2.5rem)}.primary{background:linear-gradient(135deg,#e9b765,#b97428);color:#261307;border:0;border-radius:12px;padding:18px 30px;font:bold 1.05rem system-ui;margin-top:16px;box-shadow:0 7px 28px #0006}.result{margin:24px auto 0;padding:20px;border-top:1px solid #9c6b3d;max-width:600px}.result h3{font-size:2rem;color:#e9b765}.reveal{font-size:1.5rem}.panel{padding:24px;margin:20px 0}.panel form{display:flex;gap:10px}.panel input{flex:1;min-width:0;padding:13px;border-radius:9px;border:1px solid #97714c;background:#1c120c;color:#fff}.panel form button,.actions button,nav button{background:#56371e;border:1px solid #91643b;color:#f7e8c9;padding:11px 14px;border-radius:9px}nav{display:flex;gap:8px;margin:22px 0 10px}nav .active{background:#b97428;color:#1a100b;font-weight:bold}ul{list-style:none;padding:0;margin:0}li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid #725138}li small{display:block;color:#cfb18a;margin-top:5px}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.empty{text-align:center}footer{text-align:center;font-size:.8rem;padding:20px;color:#bda07c}.notice{position:fixed;bottom:20px;right:20px;background:#f7e8c9;color:#28190d;padding:15px;border-radius:10px;max-width:330px;box-shadow:0 8px 35px #0009}.notice button{margin-left:10px;background:none;border:0;font-size:1.3rem}@media(max-width:650px){header img{width:75px;height:75px}header{gap:12px}.stats div{padding:13px 5px}.stats strong{font-size:1.6rem}.stats span{font-size:.7rem}.hero{padding:30px 14px}.panel{padding:15px}.panel form{flex-direction:column}li{align-items:flex-start;flex-direction:column}}
+
+/* ==========================================
+   PRÓXIMO CAPÍTULO
+   Estilos gerais
+   ========================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #f7e8c9;
+  background: #1a100b;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   ESTRUTURA PRINCIPAL
+   ========================================== */
+
+.app {
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(18, 10, 6, 0.88),
+      rgba(18, 10, 6, 0.72)
+    ),
+    url('/images/biblioteca-fundo.png') center / cover no-repeat;
+}
+
+.shell {
+  max-width: 1020px;
+  margin: auto;
+  padding: 28px 20px;
+}
+
+/* ==========================================
+   CABEÇALHO
+   ========================================== */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  margin-bottom: 26px;
+}
+
+header img {
+  width: 115px;
+  height: 115px;
+  object-fit: cover;
+  border-radius: 17px;
+  border: 1px solid #b97428;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.3rem);
+  margin: 7px 0;
+}
+
+h2 {
+  font-size: 1.6rem;
+  margin: 10px 0;
+}
+
+p {
+  line-height: 1.5;
+  color: #e7cfaa;
+}
+
+.eyebrow {
+  font: 700 0.7rem system-ui, sans-serif;
+  letter-spacing: 3px;
+  color: #e9b765;
+}
+
+/* ==========================================
+   ESTATÍSTICAS
+   ========================================== */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stats div,
+.panel,
+.hero {
+  background: rgba(42, 25, 15, 0.82);
+  border: 1px solid rgba(233, 183, 101, 0.24);
+  border-radius: 18px;
+  backdrop-filter: blur(6px);
+}
+
+.stats div {
+  padding: 20px;
+  text-align: center;
+}
+
+.stats strong {
+  display: block;
+  font-size: 2rem;
+  color: #e9b765;
+}
+
+.stats span {
+  font: 500 0.85rem system-ui, sans-serif;
+}
+
+/* ==========================================
+   SORTEADOR
+   ========================================== */
+
+.hero {
+  text-align: center;
+  margin: 20px 0;
+  padding: 48px 18px;
+}
+
+.hero h2 {
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+}
+
+.primary {
+  background: linear-gradient(135deg, #e9b765, #b97428);
+  color: #261307;
+  border: 0;
+  border-radius: 12px;
+  padding: 18px 30px;
+  font: bold 1.05rem system-ui, sans-serif;
+  margin-top: 16px;
+  box-shadow: 0 7px 28px #0006;
+}
+
+.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f3c984, #cf8735);
+}
+
+.result {
+  margin: 24px auto 0;
+  padding: 20px;
+  border-top: 1px solid #9c6b3d;
+  max-width: 600px;
+}
+
+.result h3 {
+  font-size: 2rem;
+  color: #e9b765;
+}
+
+.reveal {
+  font-size: 1.5rem;
+}
+
+/* ==========================================
+   BIBLIOTECA
+   ========================================== */
+
+.panel {
+  padding: 24px;
+  margin: 20px 0;
+}
+
+.panel form {
+  display: flex;
+  gap: 10px;
+}
+
+.panel input {
+  flex: 1;
+  min-width: 0;
+  padding: 13px;
+  border-radius: 9px;
+  border: 1px solid #97714c;
+  background: #1c120c;
+  color: #fff;
+}
+
+.panel form button,
+.actions button,
+nav button {
+  background: #56371e;
+  border: 1px solid #91643b;
+  color: #f7e8c9;
+  padding: 11px 14px;
+  border-radius: 9px;
+}
+
+.panel form button:hover,
+.actions button:hover,
+nav button:hover {
+  background: #704723;
+}
+
+/* ==========================================
+   BUSCA E ORDENAÇÃO
+   ========================================== */
+
+.library-filters {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.library-filters input {
+  flex: 1;
+  min-width: 0;
+}
+
+.sort-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 110px;
+  padding: 12px 18px;
+  border: 1px solid #d9a45b;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #674021, #3c2516);
+  color: #f7e8c9;
+  font: 700 0.95rem system-ui, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+
+.sort-toggle:hover {
+  background: linear-gradient(135deg, #85552c, #4b2d19);
+  transform: translateY(-2px);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+}
+
+.sort-toggle:active {
+  transform: translateY(0);
+}
+
+.sort-toggle:focus-visible {
+  outline: 3px solid #e9b765;
+  outline-offset: 3px;
+}
+
+.sort-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+  background: rgba(233, 183, 101, 0.18);
+  color: #f3c77d;
+  font-size: 1.25rem;
+}
+
+/* ==========================================
+   ABAS E LISTA DE LIVROS
+   ========================================== */
+
+nav {
+  display: flex;
+  gap: 8px;
+  margin: 22px 0 10px;
+}
+
+nav .active {
+  background: #b97428;
+  color: #1a100b;
+  font-weight: bold;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 0;
+  border-bottom: 1px solid #725138;
+}
+
+li small {
+  display: block;
+  color: #cfb18a;
+  margin-top: 5px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.empty {
+  text-align: center;
+}
+
+/* ==========================================
+   CAPA MÁGICA DO LIVRO SORTEADO
+   ========================================== */
+
+.draw-result-heading {
+  display: block;
+  margin-bottom: 22px;
+  color: #f3d49c;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+}
+
+/* Estrutura da capa */
+
+.draw-book-cover {
+  position: relative;
+  width: min(300px, 88%);
+  aspect-ratio: 2 / 3;
+  margin: 0 auto 24px;
+  overflow: hidden;
+  border-radius: 15px;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.55),
+    0 0 28px rgba(233, 183, 101, 0.18);
+  animation: book-reveal 0.8s ease-out both;
+}
+
+.draw-book-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Área de posicionamento dos textos */
+
+.draw-book-title {
+  position: absolute;
+  inset: 0;
+  transform: none;
+
+  display: block;
+  width: 100%;
+  max-height: none;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Frase posicionada acima do livro aberto */
+
+.draw-book-caption {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 80%;
+  color: #f5c777;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  line-height: 1.5;
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.9),
+    0 0 12px rgba(233, 183, 101, 0.25);
+}
+
+/* Título sorteado abaixo do livro aberto */
+
+.draw-book-title h3 {
+  position: absolute;
+  top: 73%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  width: 78%;
+  max-width: none;
+  margin: 0;
+
+  color: #ffe5b0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.15rem, 2.5vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+
+  text-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.95),
+    0 0 15px rgba(233, 183, 101, 0.35);
+}
+
+/* Ornamento abaixo do título */
+
+.draw-book-ornament {
+  position: absolute;
+  top: 83%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  color: #ffd078;
+  font-size: 1.2rem;
+  text-shadow: 0 0 12px rgba(255, 182, 56, 0.7);
+}
+
+/* Botões após o sorteio */
+
+.draw-actions {
+  margin-top: 18px;
+  gap: 10px;
+}
+
+/* Animação da revelação */
+
+@keyframes book-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.92);
+    filter: brightness(0.65);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+/* ==========================================
+   NOTIFICAÇÕES E RODAPÉ
+   ========================================== */
+
+footer {
+  text-align: center;
+  font-size: 0.8rem;
+  padding: 20px;
+  color: #bda07c;
+}
+
+.notice {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #f7e8c9;
+  color: #28190d;
+  padding: 15px;
+  border-radius: 10px;
+  max-width: 330px;
+  box-shadow: 0 8px 35px #0009;
+}
+
+.notice button {
+  margin-left: 10px;
+  background: none;
+  border: 0;
+  font-size: 1.3rem;
+}
+
+/* ==========================================
+   RESPONSIVIDADE
+   ========================================== */
+
+@media (max-width: 650px) {
+  header img {
+    width: 75px;
+    height: 75px;
+  }
+
+  header {
+    gap: 12px;
+  }
+
+  .stats div {
+    padding: 13px 5px;
+  }
+
+  .stats strong {
+    font-size: 1.6rem;
+  }
+
+  .stats span {
+    font-size: 0.7rem;
+  }
+
+  .hero {
+    padding: 30px 14px;
+  }
+
+  .panel {
+    padding: 15px;
+  }
+
+  .panel form {
+    flex-direction: column;
+  }
+
+  li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .library-filters {
+    gap: 8px;
+  }
+
+  .sort-toggle {
+    min-width: 85px;
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .draw-book-cover {
+    width: min(260px, 92%);
+  }
+
+  .draw-book-caption {
+    font-size: 0.55rem;
+    letter-spacing: 1.4px;
+  }
+
+  .draw-book-title h3 {
+    font-size: 1.2rem;
+  }
+
+  .draw-book-ornament {
+    font-size: 1rem;
+  }
+}
+
+/* ==========================================
+   ACESSIBILIDADE
+   ========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .sort-toggle {
+    transition: none;
+  }
+
+  .draw-book-cover {
+    animation: none;
+  }
+}
