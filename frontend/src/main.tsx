@@ -11,6 +11,8 @@ import {
 
 import './style.css';
 import './navigation.css';
+import LoginEmBreve from './pages/LoginEmBreve';
+import Importar from './pages/Importar';
 
 // ==========================================
 // TIPOS
@@ -1235,35 +1237,7 @@ function App() {
 
           <Route
             path="/importar"
-            element={
-              <section className="panel page-placeholder">
-                <span className="eyebrow">
-                  TRAGA SUAS HISTÓRIAS
-                </span>
-
-                <h2>
-                  📥 Importar biblioteca
-                </h2>
-
-                <p>
-                  Em breve, você poderá importar sua
-                  biblioteca completa de uma só vez.
-                </p>
-
-                <p>
-                  Estamos preparando a importação de
-                  listas de títulos e arquivos digitais,
-                  com prévia e identificação de duplicados.
-                </p>
-
-                <NavLink
-                  className="page-link"
-                  to="/biblioteca"
-                >
-                  Ver minha biblioteca
-                </NavLink>
-              </section>
-            }
+            element={<Importar />}
           />
 
           {/* ==================================
@@ -1272,34 +1246,7 @@ function App() {
 
           <Route
             path="/login"
-            element={
-              <section className="panel page-placeholder">
-                <span className="eyebrow">
-                  SUA BIBLIOTECA PESSOAL
-                </span>
-
-                <h2>
-                  ✨ Entre na sua biblioteca
-                </h2>
-
-                <p>
-                  Estamos preparando o acesso por e-mail,
-                  senha e conta Google.
-                </p>
-
-                <p>
-                  A tela definitiva seguirá o modelo
-                  marrom e dourado que você escolheu.
-                </p>
-
-                <NavLink
-                  className="page-link"
-                  to="/"
-                >
-                  Voltar ao início
-                </NavLink>
-              </section>
-            }
+            element={<LoginEmBreve />}
           />
 
           {/* ENDEREÇO DESCONHECIDO */}
