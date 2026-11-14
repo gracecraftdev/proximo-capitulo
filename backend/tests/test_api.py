@@ -25,9 +25,15 @@ def client(tmp_path):
     def test_repository():
         return BookRepository(engine)
 
+    # Utiliza banco de dados isolado durante os testes
     main.app.dependency_overrides[
         main.get_repository
     ] = test_repository
+
+    # Simula um usuário autenticado apenas nestes testes
+    main.app.dependency_overrides[
+        main.require_auth
+    ] = lambda: "admin"
 
     try:
         with TestClient(main.app) as test_client:
