@@ -1,171 +1,501 @@
 
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import './login.css';
+
+// ==========================================
+// CONFIGURAÇÃO DA API
+// ==========================================
+
+const API =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV
+    ? 'http://127.0.0.1:8000'
+    : '/api');
+
+type AuthResponse = {
+  authenticated?: boolean;
+  user?: string;
+  detail?: string;
+};
+
+// ==========================================
+// PÁGINA DE LOGIN
+// ==========================================
 
 export default function LoginEmBreve() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  // ========================================
+  // VERIFICAR SESSÃO EXISTENTE
+  // ========================================
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkSession() {
+      try {
+        const response = await fetch(`${API}/auth/me`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        if (!active) return;
+
+        if (response.ok) {
+          const data: AuthResponse = await response.json();
+
+          setAuthenticated(data.authenticated === true);
+        } else {
+          setAuthenticated(false);
+        }
+      } catch {
+        if (active) {
+          setAuthenticated(false);
+        }
+      } finally {
+        if (active) {
+          setCheckingSession(false);
+        }
+      }
+    }
+
+    void checkSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // ========================================
+  // REALIZAR LOGIN
+  // ========================================
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (loading) return;
+
+    setError('');
+    setNotice('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
+
+      const data: AuthResponse = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok || data.authenticated !== true) {
+        throw new Error(
+          response.status === 401
+            ? 'E-mail ou senha incorretos.'
+            : typeof data.detail === 'string'
+              ? data.detail
+              : 'Não foi possível realizar o login.'
+        );
+      }
+
+      // Confirma se o cookie de sessão foi recebido
+      // e pode ser utilizado na próxima requisição.
+      const sessionResponse = await fetch(
+        `${API}/auth/me`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        }
+      );
+
+      if (!sessionResponse.ok) {
+        throw new Error(
+          'O login foi aceito, mas não foi possível ' +
+          'confirmar a sessão. Verifique a configuração ' +
+          'dos cookies e da API.'
+        );
+      }
+
+      const session: AuthResponse =
+        await sessionResponse.json();
+
+      if (session.authenticated !== true) {
+        throw new Error(
+          'Não foi possível confirmar sua sessão.'
+        );
+      }
+
+      setAuthenticated(true);
+      setPassword('');
+      setNotice('Login realizado com sucesso!');
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : 'Não foi possível conectar ao servidor.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ========================================
+  // REALIZAR LOGOUT
+  // ========================================
+
+  async function handleLogout() {
+    if (loading) return;
+
+    setError('');
+    setNotice('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          'Não foi possível encerrar sua sessão.'
+        );
+      }
+
+      setAuthenticated(false);
+      setPassword('');
+      setNotice('Você saiu da sua conta.');
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : 'Erro ao encerrar a sessão.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ========================================
+  // INTERFACE
+  // ========================================
+
   return (
-    <section className="login-soon-page">
-      <style>{`
-        .login-soon-page {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 480px;
-          padding: 42px 16px 64px;
-        }
+    <main className="pc-login-scene">
+      <div
+        className="pc-login-ambient"
+        aria-hidden="true"
+      />
 
-        .login-soon-card {
-          width: 100%;
-          max-width: 560px;
-          padding: clamp(28px, 6vw, 56px);
-          text-align: center;
-          border-radius: 24px;
-          border: 1px solid rgba(217, 169, 99, 0.45);
-          background:
-            radial-gradient(
-              circle at top,
-              rgba(168, 106, 48, 0.16),
-              transparent 60%
-            ),
-            linear-gradient(150deg, #332116, #21140e);
-          box-shadow: 0 25px 65px rgba(0, 0, 0, 0.3);
-          color: #f5e5d0;
-        }
+      <img
+        className="pc-login-books"
+        src="/images/login-livros-decorativos.png"
+        alt=""
+        aria-hidden="true"
+      />
 
-        .login-soon-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 90px;
-          height: 90px;
-          margin: 0 auto 24px;
-          border-radius: 50%;
-          color: #e8bb77;
-          background: rgba(214, 160, 85, 0.09);
-          border: 1px solid rgba(214, 160, 85, 0.25);
-        }
+      <img
+        className="pc-login-coffee"
+        src="/images/login-xicara-decorativa.png"
+        alt=""
+        aria-hidden="true"
+      />
 
-        .login-soon-eyebrow {
-          color: #d7a967;
-          font-size: 0.75rem;
-          font-weight: 700;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-        }
+      <section
+        className="pc-login-panel"
+        aria-label="Entrar na biblioteca"
+      >
+        <div className="pc-login-brand">
+          <img
+            src="/images/login-icone-proximo-capitulo.png"
+            alt="Livro mágico, dado e estrelas"
+          />
+        </div>
 
-        .login-soon-card h2 {
-          margin: 18px 0;
-          color: #f9e8cc;
-          font-family: Georgia, serif;
-          font-size: clamp(1.8rem, 5vw, 2.5rem);
-          line-height: 1.2;
-        }
+        <h1>Próximo Capítulo</h1>
 
-        .login-soon-description {
-          max-width: 410px;
-          margin: 0 auto;
-          color: #d0baa0;
-          line-height: 1.8;
-        }
+        <div
+          className="pc-login-ornament"
+          aria-hidden="true"
+        >
+          <span>◇ ✧ ◇</span>
+        </div>
 
-        .login-soon-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 9px;
-          margin: 26px 0 12px;
-          padding: 11px 20px;
-          border-radius: 999px;
-          color: #ecc58c;
-          font-weight: 700;
-          border: 1px solid rgba(217, 169, 99, 0.3);
-          background: rgba(196, 140, 69, 0.12);
-        }
+        <p className="pc-login-subtitle">
+          {authenticated
+            ? 'Bem-vinda à sua biblioteca'
+            : 'Entre na sua biblioteca'}
+        </p>
 
-        .login-soon-note {
-          margin: 12px auto 28px;
-          color: #bda58c;
-          font-size: 0.9rem;
-          line-height: 1.6;
-        }
+        {checkingSession ? (
+          <p className="pc-login-note" role="status">
+            Verificando sua sessão...
+          </p>
+        ) : authenticated ? (
+          <div className="pc-login-form">
+            <p className="pc-login-signup">
+              Sua sessão está ativa.
+            </p>
 
-        .login-soon-back {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 46px;
-          padding: 13px 24px;
-          border-radius: 11px;
-          border: 1px solid #d4a56a;
-          color: #f4d6a8;
-          text-decoration: none;
-          font-weight: 700;
-          transition:
-            background 0.2s ease,
-            transform 0.2s ease;
-        }
+            <Link
+              className="pc-login-submit"
+              to="/biblioteca"
+              style={{ textDecoration: 'none' }}
+            >
+              Ir para minha biblioteca
+            </Link>
 
-        .login-soon-back:hover {
-          background: rgba(212, 165, 106, 0.15);
-          transform: translateY(-2px);
-        }
-
-        .login-soon-back:focus-visible {
-          outline: 2px solid #f4d6a8;
-          outline-offset: 4px;
-        }
-
-        @media (max-width: 600px) {
-          .login-soon-page {
-            padding: 28px 0 42px;
-          }
-        }
-      `}</style>
-
-      <div className="login-soon-card">
-        <div className="login-soon-icon" aria-hidden="true">
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            <button
+              className="pc-login-google"
+              type="button"
+              onClick={() => void handleLogout()}
+              disabled={loading}
+            >
+              {loading ? 'Saindo...' : 'Sair da conta'}
+            </button>
+          </div>
+        ) : (
+          <form
+            className="pc-login-form"
+            onSubmit={handleSubmit}
           >
-            <path d="M12 7.5c-2.5-1.5-5.5-1.7-9-1v12c3.5-.7 6.5-.5 9 1" />
-            <path d="M12 7.5c2.5-1.5 5.5-1.7 9-1v12c-3.5-.7-6.5-.5-9 1" />
-            <path d="M12 7.5v12" />
-            <path d="m17 2 .5 1.5L19 4l-1.5.5L17 6l-.5-1.5L15 4l1.5-.5L17 2Z" />
-          </svg>
+            <label
+              className="pc-login-inputbox"
+              htmlFor="pc-login-email"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                aria-hidden="true"
+              >
+                <rect
+                  x="2"
+                  y="4"
+                  width="20"
+                  height="16"
+                  rx="2"
+                />
+                <path d="m2 6 10 8 10-8" />
+              </svg>
+
+              <input
+                id="pc-login-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={event =>
+                  setEmail(event.target.value)
+                }
+                placeholder="E-mail"
+                aria-label="E-mail"
+                required
+              />
+            </label>
+
+            <label
+              className="pc-login-inputbox"
+              htmlFor="pc-login-password"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                aria-hidden="true"
+              >
+                <rect
+                  x="5"
+                  y="10"
+                  width="14"
+                  height="12"
+                  rx="2"
+                />
+                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                <circle cx="12" cy="16" r="1" />
+              </svg>
+
+              <input
+                id="pc-login-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
+                onChange={event =>
+                  setPassword(event.target.value)
+                }
+                placeholder="Senha"
+                aria-label="Senha"
+                required
+              />
+
+              <button
+                className="pc-login-visibility"
+                type="button"
+                aria-label={
+                  showPassword
+                    ? 'Ocultar senha'
+                    : 'Mostrar senha'
+                }
+                aria-pressed={showPassword}
+                onClick={() =>
+                  setShowPassword(value => !value)
+                }
+              >
+                {showPassword ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    aria-hidden="true"
+                  >
+                    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="3"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    aria-hidden="true"
+                  >
+                    <path d="m3 3 18 18" />
+                    <path d="M10.5 5.1 12 5c6 0 10 7 10 7a15 15 0 0 1-3.4 3.8M6 6.5C3.4 8.5 2 12 2 12s4 7 10 7c1.8 0 3.3-.5 4.7-1.5" />
+                  </svg>
+                )}
+              </button>
+            </label>
+
+            <div className="pc-login-options">
+              <label title="Em breve">
+                <input
+                  type="checkbox"
+                  disabled
+                />
+                Lembrar meu acesso
+              </label>
+
+              <span
+                title="Em breve"
+                className="pc-login-forgot"
+              >
+                Esqueci minha senha
+              </span>
+            </div>
+
+            {error && (
+              <p
+                className="pc-login-error"
+                role="alert"
+              >
+                {error}
+              </p>
+            )}
+
+            <button
+              className="pc-login-submit"
+              type="submit"
+              disabled={loading}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <path d="M10 4h9a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-9" />
+                <path d="m12 8 4 4-4 4M16 12H3" />
+              </svg>
+
+              {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+        )}
+
+        {notice && (
+          <p
+            className="pc-login-signup"
+            role="status"
+          >
+            {notice}
+          </p>
+        )}
+
+        {authenticated && error && (
+          <p
+            className="pc-login-error"
+            role="alert"
+          >
+            {error}
+          </p>
+        )}
+
+        <div className="pc-login-divider">
+          <span>ou</span>
         </div>
 
-        <span className="login-soon-eyebrow">
-          Um novo capítulo está chegando
-        </span>
+        <button
+          className="pc-login-google"
+          type="button"
+          disabled
+          title="Em breve"
+        >
+          <span
+            className="pc-login-google-g"
+            aria-hidden="true"
+          >
+            G
+          </span>
 
-        <h2>Sua biblioteca, seu universo.</h2>
+          Entrar com o Google
+        </button>
 
-        <p className="login-soon-description">
-          Estamos preparando um espaço especial para você
-          guardar suas histórias, organizar suas leituras
-          e continuar exatamente de onde parou.
+        <p className="pc-login-signup">
+          Ainda não tem uma conta?{' '}
+          <span title="Em breve">
+            Cadastre-se
+          </span>
         </p>
 
-        <div className="login-soon-status">
-          <span aria-hidden="true">✦</span>
-          Em breve
-          <span aria-hidden="true">✦</span>
-        </div>
-
-        <p className="login-soon-note">
-          Login e criação de conta estarão disponíveis
-          em uma próxima atualização.
-        </p>
-
-        <Link to="/" className="login-soon-back">
-          ← Voltar à biblioteca
+        <Link
+          className="pc-login-back"
+          to="/"
+        >
+          ← Voltar à página inicial
         </Link>
-      </div>
-    </section>
+
+        <p className="pc-login-note">
+          Google, cadastro e recuperação de senha:
+          em breve.
+        </p>
+      </section>
+    </main>
   );
 }

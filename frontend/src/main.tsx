@@ -45,13 +45,16 @@ type DrawHistory = {
 // ==========================================
 
 const API =
-  import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV
+    ? 'http://127.0.0.1:8000'
+    : '/api');
 
 async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
   const response = await fetch(`${API}${path}`, {
+    credentials: 'include',
     ...options,
     headers: {
       'Content-Type': 'application/json',

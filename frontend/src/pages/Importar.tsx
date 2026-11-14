@@ -44,7 +44,9 @@ type ImportSummary = {
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  'http://127.0.0.1:8000';
+  (import.meta.env.DEV
+    ? 'http://127.0.0.1:8000'
+    : '/api');
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_TITLES = 1000;
@@ -332,7 +334,9 @@ export default function Importar() {
   // ==========================================
 
   async function loadBooks(): Promise<Book[]> {
-    const response = await fetch(`${API_URL}/books`);
+    const response = await fetch(`${API_URL}/books`, {
+      credentials: 'include',
+    });
 
     if (!response.ok) {
       setLibraryReady(false);
@@ -626,6 +630,7 @@ export default function Importar() {
             `${API_URL}/books`,
             {
               method: 'POST',
+              credentials: 'include',
               headers: {
                 'Content-Type': 'application/json',
               },
